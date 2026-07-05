@@ -1,0 +1,29 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: mongo-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - gallery-network
+
+  mongo-backup:
+    build: ./mongo-backup
+    container_name: mongo-backup
+    depends_on:
+      - mongo
+    volumes:
+      - mongo_backups:/backups
+    networks:
+      - gallery-network
+
+volumes:
+  mongo_data:
+  mongo_backups:
+
+networks:
+  gallery-network:
+    driver: bridge
