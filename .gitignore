@@ -45,3 +45,12 @@ next-env.d.ts
 
 garage-backup/
 mongo-backup/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
