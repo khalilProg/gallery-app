@@ -43,6 +43,5 @@ next-env.d.ts
 *.pid
 *.log
 
-garage/
 garage-backup/
 mongo-backup/
