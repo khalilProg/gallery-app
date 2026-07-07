@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ImageCard from "./ImageCard";
 
 interface ImageMeta {
@@ -12,33 +12,18 @@ interface ImageMeta {
 
 export default function ImageGrid() {
   const [images, setImages] = useState<ImageMeta[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchImages = useCallback(async () => {
-    setLoading(true);
-    try {
+  useEffect(() => {
+    const fetchpic = async () => {
       const res = await fetch("/api/images");
       const data: ImageMeta[] = await res.json();
       setImages(data);
-    } finally {
-      setLoading(false);
     }
+    fetchpic();
   }, []);
-
-  useEffect(() => {
-    fetchImages();
-  }, [fetchImages]);
 
   function handleDeleted(id: string) {
     setImages((prev) => prev.filter((img) => img._id !== id));
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-gray-400 animate-pulse">Loading images…</p>
-      </div>
-    );
   }
 
   if (images.length === 0) {
