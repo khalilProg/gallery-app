@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/mongodb";
-import { s3 } from "@/lib/garage";
+import { getS3 } from "@/lib/garage";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 export async function POST(req: Request) {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const key = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
 
   // 1. Upload image to Garage (S3-compatible object storage)
-  await s3.send(
+  await getS3().send(
     new PutObjectCommand({
       Bucket: process.env.GARAGE_BUCKET!,
       Key: key,

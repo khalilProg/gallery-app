@@ -1,4 +1,4 @@
-import { s3 } from "@/lib/garage";
+import { getS3 } from "@/lib/garage";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
 export async function GET(
@@ -9,7 +9,7 @@ export async function GET(
   const objectKey = key.join("/");
 
   try {
-    const response = await s3.send(
+    const response = await getS3().send(
       new GetObjectCommand({
         Bucket: process.env.GARAGE_BUCKET!,
         Key: objectKey,

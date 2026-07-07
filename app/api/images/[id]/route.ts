@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/mongodb";
-import { s3 } from "@/lib/garage";
+import { getS3 } from "@/lib/garage";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { ObjectId } from "mongodb";
 
@@ -21,7 +21,7 @@ export async function DELETE(
   }
 
   // 1. Delete the file from Garage (S3)
-  await s3.send(
+  await getS3().send(
     new DeleteObjectCommand({
       Bucket: process.env.GARAGE_BUCKET!,
       Key: image.key,
