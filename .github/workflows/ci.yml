@@ -3,12 +3,13 @@ name: Continious Integration
 on:
   push:
     branches:
-      main
+      - main
   pull_request: 
     branches: 
-      main
+      - main
 permissions: 
   contents: read
+
 jobs:
   test-and-build:
     name: lint, build & docker check
