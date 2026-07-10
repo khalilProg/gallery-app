@@ -1,0 +1,121 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Garage S3-compatible object storage metrics",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Objects Stored",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "table_size{table_name=\"object\"}", "legendFormat": "Objects", "refId": "A" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Blocks on Disk",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "block_rc_size", "legendFormat": "Blocks", "refId": "A" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] }, "unit": "percent" },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Disk Used %",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "100 * (1 - garage_local_disk_avail{volume=\"data\"} / garage_local_disk_total{volume=\"data\"})", "legendFormat": "Used %", "refId": "A" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.5 }] }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "title": "Cluster Healthy",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "cluster_healthy", "legendFormat": "Healthy", "refId": "A" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 }, "unit": "bytes" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 5,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Disk Space (Data Volume)",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "garage_local_disk_total{volume=\"data\"}", "legendFormat": "Total", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "garage_local_disk_avail{volume=\"data\"}", "legendFormat": "Available", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "garage_local_disk_total{volume=\"data\"} - garage_local_disk_avail{volume=\"data\"}", "legendFormat": "Used", "refId": "C" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 }, "unit": "s" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 6,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "RPC Latency (p95)",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.95, sum(rate(rpc_duration_bucket[5m])) by (le, rpc_endpoint))", "legendFormat": "p95 {{rpc_endpoint}}", "refId": "A" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 }, "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "id": 7,
+      "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Table Sizes Over Time",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "table_size", "legendFormat": "{{table_name}}", "refId": "A" }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["garage", "s3"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Garage Storage",
+  "uid": "garage",
+  "version": 2
+}

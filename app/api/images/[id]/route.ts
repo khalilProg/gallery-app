@@ -2,6 +2,7 @@ import { getDb } from "@/lib/mongodb";
 import { getS3 } from "@/lib/garage";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { ObjectId } from "mongodb";
+import { incrementDeletions } from "@/lib/metrics";
 
 export async function DELETE(
   _req: Request,
@@ -30,6 +31,8 @@ export async function DELETE(
 
   // 2. Remove the metadata from MongoDB
   await db.collection("images").deleteOne({ _id: new ObjectId(id) });
+
+  incrementDeletions();
 
   return Response.json({ success: true });
 }

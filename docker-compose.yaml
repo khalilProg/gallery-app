@@ -30,6 +30,22 @@ services:
     networks:
       - gallery-network
 
+  mongodb-exporter:
+    image: bitnami/mongodb-exporter:latest
+    container_name: mongodb-exporter
+    restart: unless-stopped
+    command:
+      - --collect-all
+      - --compatible-mode
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017
+    ports:
+      - "9216:9216"
+    depends_on:
+      - mongo
+    networks:
+      - gallery-network
+
   gallery:
     container_name: gallery-app
     restart: unless-stopped
@@ -56,9 +72,46 @@ services:
     networks:
       - gallery-network
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - gallery-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/grafana.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - gallery-network
+
 volumes:
   mongo_data:
   garage_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   gallery-network:

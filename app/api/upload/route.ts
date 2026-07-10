@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/mongodb";
 import { getS3 } from "@/lib/garage";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { incrementUploads } from "@/lib/metrics";
 
 export async function POST(req: Request) {
   const formData = await req.formData();
@@ -37,6 +38,8 @@ export async function POST(req: Request) {
     contentType: file.type,
     createdAt: new Date(),
   });
+
+  incrementUploads();
 
   return Response.json({
     id: result.insertedId.toString(),
