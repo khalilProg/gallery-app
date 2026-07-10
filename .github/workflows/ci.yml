@@ -8,46 +8,35 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-
 jobs:
   test-and-build:
-    name: lint, build & docker check
+    name: lint, type-check & docker check
     runs-on: ubuntu-latest
 
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.3.0
-
       - name: setup node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
 
       - name: install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: run eslint
-        run: pnpm lint
+        run: npm run lint
 
       - name: type check
-        run: pnpm type-check
-
-      - name: build next.js
-        run: pnpm build
-        env:
-          MONGO_URI: ${{ secrets.MONGO_URI }}
-          GARAGE_ENDPOINT: ${{ secrets.GARAGE_ENDPOINT }}
-          GARAGE_ACCESS_KEY: ${{ secrets.GARAGE_ACCESS_KEY }}
-          GARAGE_SECRET_KEY: ${{ secrets.GARAGE_SECRET_KEY }}
-          GARAGE_BUCKET: ${{ secrets.GARAGE_BUCKET }}
+        run: npm run type-check
 
       - name: build docker image
-        run: docker build -t gallery:test .
+        run: |
+          docker build \
+            --build-arg MONGO_URI="${{ secrets.MONGO_URI }}" \
+            --build-arg GARAGE_ENDPOINT="${{ secrets.GARAGE_ENDPOINT }}" \
+            --build-arg GARAGE_ACCESS_KEY="${{ secrets.GARAGE_ACCESS_KEY }}" \
+            --build-arg GARAGE_SECRET_KEY="${{ secrets.GARAGE_SECRET_KEY }}" \
+            --build-arg GARAGE_BUCKET="${{ secrets.GARAGE_BUCKET }}" \
+            -t gallery:test .

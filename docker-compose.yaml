@@ -3,17 +3,13 @@ services:
     image: mongo:8
     container_name: mongo-db
     restart: unless-stopped
-
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
-
     ports:
       - "27017:27017"
-
     volumes:
       - mongo_data:/data/db
-
     networks:
       - gallery-network
 
@@ -21,20 +17,42 @@ services:
     image: dxflrs/garage:v2.3.0
     container_name: garage
     restart: unless-stopped
-
     ports:
       - "3900:3900"
       - "3901:3901"
       - "3902:3902"
       - "3903:3903"
-
     environment:
       RUST_LOG: info
-
     volumes:
       - ./garage/config/garage.toml:/etc/garage.toml:ro
       - garage_data:/var/lib/garage
+    networks:
+      - gallery-network
 
+  gallery:
+    container_name: gallery-app
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - MONGO_URI=${MONGO_URI}
+        - GARAGE_ENDPOINT=${GARAGE_ENDPOINT}
+        - GARAGE_ACCESS_KEY=${GARAGE_ACCESS_KEY}
+        - GARAGE_SECRET_KEY=${GARAGE_SECRET_KEY}
+        - GARAGE_BUCKET=${GARAGE_BUCKET}
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - GARAGE_ENDPOINT=${GARAGE_ENDPOINT}
+      - GARAGE_ACCESS_KEY=${GARAGE_ACCESS_KEY}
+      - GARAGE_SECRET_KEY=${GARAGE_SECRET_KEY}
+      - GARAGE_BUCKET=${GARAGE_BUCKET}
+    depends_on:
+      - mongo
+      - garage
     networks:
       - gallery-network
 

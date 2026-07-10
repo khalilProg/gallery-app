@@ -4,6 +4,7 @@ on:
   push: 
     branches: 
       - main
+
 permissions: 
   contents: read
   packages: write
@@ -30,23 +31,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: extract docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha
-            type=ref,event=branch
-
       - name: build and push docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            MONGO_URI=${{ secrets.MONGO_URI }}
+            GARAGE_ENDPOINT=${{ secrets.GARAGE_ENDPOINT }}
+            GARAGE_ACCESS_KEY=${{ secrets.GARAGE_ACCESS_KEY }}
+            GARAGE_SECRET_KEY=${{ secrets.GARAGE_SECRET_KEY }}
+            GARAGE_BUCKET=${{ secrets.GARAGE_BUCKET }}

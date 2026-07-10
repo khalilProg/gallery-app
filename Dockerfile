@@ -3,15 +3,25 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@11 --activate
+COPY package.json package-lock.json ./
 
-COPY package.json pnpm-lock.yaml ./
-
-RUN pnpm install --frozen-lockfile
+RUN npm install
 
 COPY . .
 
-RUN pnpm build
+ARG MONGO_URI
+ARG GARAGE_ENDPOINT
+ARG GARAGE_ACCESS_KEY
+ARG GARAGE_SECRET_KEY
+ARG GARAGE_BUCKET
+
+ENV MONGO_URI=$MONGO_URI
+ENV GARAGE_ENDPOINT=$GARAGE_ENDPOINT
+ENV GARAGE_ACCESS_KEY=$GARAGE_ACCESS_KEY
+ENV GARAGE_SECRET_KEY=$GARAGE_SECRET_KEY
+ENV GARAGE_BUCKET=$GARAGE_BUCKET
+
+RUN npm run build
 
 
 # ---------- Production stage ----------
@@ -21,11 +31,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN corepack enable && corepack prepare pnpm@11 --activate
+COPY package.json package-lock.json ./
 
-COPY package.json pnpm-lock.yaml ./
-
-RUN pnpm install --prod --frozen-lockfile
+RUN npm install --omit=dev
 
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
@@ -33,4 +41,4 @@ COPY --from=builder /app/next.config.* ./
 
 EXPOSE 3000
 
-CMD ["pnpm", "start"]
+CMD ["npm", "start"]
