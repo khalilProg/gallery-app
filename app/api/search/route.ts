@@ -4,22 +4,13 @@ import { generateTextEmbedding, dotProduct } from "@/lib/embeddings";
 const SIMILARITY_THRESHOLD = 0.25;
 const MAX_RESULTS = 50;
 
-function textMatch(tags: unknown, caption: unknown, query: string): boolean {
+function tagMatch(tags: unknown, query: string): boolean {
+  if (!Array.isArray(tags)) return false;
   const q = query.toLowerCase();
-
-  if (Array.isArray(tags)) {
-    const tagHit = tags.some((tag: string) => {
-      const t = tag.toLowerCase();
-      return t.includes(q) || q.includes(t);
-    });
-    if (tagHit) return true;
-  }
-
-  if (typeof caption === "string" && caption.toLowerCase().includes(q)) {
-    return true;
-  }
-
-  return false;
+  return tags.some((tag: string) => {
+    const t = tag.toLowerCase();
+    return t.includes(q) || q.includes(t);
+  });
 }
 
 export async function GET(req: Request) {
@@ -49,14 +40,14 @@ export async function GET(req: Request) {
         Array.isArray(img.embedding) && img.embedding.length > 0
           ? dotProduct(textEmbedding, img.embedding as number[])
           : 0;
-      const hasTextMatch = textMatch(img.tags, img.caption, query);
+      const hasTagMatch = tagMatch(img.tags, query);
 
       return {
         ...img,
         _id: img._id.toString(),
         embedding: undefined,
         score: embScore,
-        tagMatch: hasTextMatch,
+        tagMatch: hasTagMatch,
       };
     })
     .filter((img) => img.score > SIMILARITY_THRESHOLD || img.tagMatch)

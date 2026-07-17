@@ -5,33 +5,30 @@ import {
   AutoProcessor,
   CLIPVisionModelWithProjection,
   RawImage,
-  pipeline,
 } from "@huggingface/transformers";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const nlp = require("compromise");
+import { LABELS } from "./labels";
 
 // ── Model IDs ────────────────────────────────────────────────────────────────
 const CLIP_MODEL = "Xenova/clip-vit-base-patch32";
-const BLIP_MODEL = "mozilla/distilvit";
 
 // ── Singleton model instances ─────────────────────────────────────────────────
 let tokenizer: Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>> | null = null;
 let textModel: Awaited<ReturnType<typeof CLIPTextModelWithProjection.from_pretrained>> | null = null;
 let processor: Awaited<ReturnType<typeof AutoProcessor.from_pretrained>> | null = null;
 let visionModel: Awaited<ReturnType<typeof CLIPVisionModelWithProjection.from_pretrained>> | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let captionPipeline: any | null = null;
 
-// ── Stopwords to strip from NLP output ───────────────────────────────────────
-const STOPWORDS = new Set([
-  "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-  "of", "with", "by", "from", "as", "is", "it", "its", "are", "was",
-  "be", "been", "being", "have", "has", "had", "do", "does", "did",
-  "will", "would", "could", "should", "may", "might", "shall", "can",
-  "this", "that", "these", "those", "there", "their", "they", "them",
-  "we", "us", "our", "you", "your", "he", "she", "him", "her", "his",
-  "photo", "picture", "image", "background",
-]);
+/**
+ * Pre-computed label embeddings cache.
+ * Built once on first tagging call, reused for all subsequent images.
+ * { label → L2-normalised 512-dim CLIP text embedding }
+ */
+let labelEmbeddingCache: Map<string, number[]> | null = null;
+
+// ── Tagging config ────────────────────────────────────────────────────────────
+/** Minimum CLIP similarity score for a label to be assigned as a tag */
+const TAG_THRESHOLD = 0.245;
+/** Maximum number of tags to assign per image */
+const MAX_TAGS = 6;
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 /** Dot product — equals cosine similarity when both vectors are L2-normalised */
@@ -66,14 +63,6 @@ async function getVisionPipeline() {
   return { processor, visionModel };
 }
 
-// ── BLIP captioning pipeline ──────────────────────────────────────────────────
-async function getCaptionPipeline() {
-  if (!captionPipeline) {
-    captionPipeline = await pipeline("image-to-text", BLIP_MODEL);
-  }
-  return captionPipeline;
-}
-
 // ── Public: CLIP text embedding ───────────────────────────────────────────────
 /** Generate a 512-dim CLIP text embedding (L2-normalised) */
 export async function generateTextEmbedding(text: string): Promise<number[]> {
@@ -103,40 +92,51 @@ export async function generateImageEmbedding(input: Buffer | Blob): Promise<numb
   return l2normalize(Array.from(image_embeds.data as Float32Array));
 }
 
-export async function generateCaptionAndTags(
-  input: Buffer | Blob
-): Promise<{ caption: string; tags: string[] }> {
-  const captioner = await getCaptionPipeline();
+// ── Label embedding cache builder ─────────────────────────────────────────────
+/**
+ * Builds (once per process) a map of label → CLIP text embedding.
+ * All 500+ labels are embedded with the "a photo of <label>" prompt
+ * that CLIP was trained on, maximising zero-shot accuracy.
+ */
+async function getLabelEmbeddings(): Promise<Map<string, number[]>> {
+  if (labelEmbeddingCache) return labelEmbeddingCache;
 
-  const arrayBuffer =
-    input instanceof Blob
-      ? await input.arrayBuffer()
-      : (input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength) as ArrayBuffer);
+  console.log(`[embeddings] Building label cache for ${LABELS.length} labels…`);
+  const cache = new Map<string, number[]>();
 
-  const blob = new Blob([arrayBuffer]);
-  const objectUrl = URL.createObjectURL(blob);
-  let caption = "";
-
-  try {
-    const result: Array<{ generated_text: string }> = await captioner(objectUrl) as any;
-    caption = result[0]?.generated_text?.trim() ?? "";
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+  for (const label of LABELS) {
+    const emb = await generateTextEmbedding(`a photo of ${label}`);
+    cache.set(label, emb);
   }
 
-  const doc = nlp(caption);
-  const rawTerms: string[] = [
-    ...(doc.nouns().out("array") as any[]),
-    ...(doc.adjectives().out("array") as any[]),
-  ];
+  labelEmbeddingCache = cache;
+  console.log("[embeddings] Label cache ready.");
+  return cache;
+}
 
-  const tags = [
-    ...new Set(
-      rawTerms
-        .map((t: string) => t.toLowerCase().trim().replace(/[^a-z0-9\s'-]/g, ""))
-        .filter((t: string) => t.length > 2 && !STOPWORDS.has(t))
-    ),
-  ];
+// ── Public: auto-tag image ────────────────────────────────────────────────────
+/**
+ * Tags an image using CLIP zero-shot classification against a comprehensive
+ * 500+ label taxonomy covering animals, food, fashion, culture, geography,
+ * nature, and more.
+ *
+ * Uses the pre-computed image embedding (no extra model calls) and the
+ * shared label embedding cache (built once, reused forever).
+ *
+ * Returns only labels whose CLIP similarity exceeds TAG_THRESHOLD,
+ * capped at MAX_TAGS, sorted by confidence descending.
+ */
+export async function autoTagImage(imageEmbedding: number[]): Promise<string[]> {
+  const labelEmbs = await getLabelEmbeddings();
 
-  return { caption, tags };
+  const scored: Array<{ label: string; score: number }> = [];
+  for (const [label, emb] of labelEmbs) {
+    scored.push({ label, score: dotProduct(imageEmbedding, emb) });
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .filter((t) => t.score > TAG_THRESHOLD)
+    .slice(0, MAX_TAGS)
+    .map((t) => t.label);
 }

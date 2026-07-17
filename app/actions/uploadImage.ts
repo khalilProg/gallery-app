@@ -2,7 +2,7 @@
 
 import { getDb } from "@/lib/mongodb";
 import { getS3 } from "@/lib/garage";
-import { generateImageEmbedding, generateCaptionAndTags } from "@/lib/embeddings";
+import { generateImageEmbedding, autoTagImage } from "@/lib/embeddings";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { incrementUploads } from "@/lib/metrics";
 
@@ -45,11 +45,10 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
 
   let embedding: number[] = [];
   let tags: string[] = [];
-  let caption = "";
   try {
     embedding = await generateImageEmbedding(buffer);
-    ({ caption, tags } = await generateCaptionAndTags(buffer));
-    console.log(`[upload] caption: "${caption}" | tags: [${tags.join(", ")}]`);
+    tags = await autoTagImage(embedding);
+    console.log(`[upload] tags: [${tags.join(", ")}]`);
   } catch (err) {
     console.error("[uploadImage] Embedding/tagging failed:", err);
   }
@@ -64,7 +63,6 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
       contentType: file.type,
       embedding,
       tags,
-      caption,
       embeddingModel: "Xenova/clip-vit-base-patch32",
       createdAt: new Date(),
     });
