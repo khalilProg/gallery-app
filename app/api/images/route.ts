@@ -9,7 +9,6 @@ export async function GET() {
     .sort({ createdAt: -1 })
     .toArray();
 
-  // Serialize _id to string for the client
   const serialized = images.map((img) => ({
     ...img,
     _id: img._id.toString(),

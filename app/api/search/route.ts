@@ -4,6 +4,24 @@ import { generateTextEmbedding, dotProduct } from "@/lib/embeddings";
 const SIMILARITY_THRESHOLD = 0.25;
 const MAX_RESULTS = 50;
 
+function textMatch(tags: unknown, caption: unknown, query: string): boolean {
+  const q = query.toLowerCase();
+
+  if (Array.isArray(tags)) {
+    const tagHit = tags.some((tag: string) => {
+      const t = tag.toLowerCase();
+      return t.includes(q) || q.includes(t);
+    });
+    if (tagHit) return true;
+  }
+
+  if (typeof caption === "string" && caption.toLowerCase().includes(q)) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q")?.trim();
@@ -23,22 +41,30 @@ export async function GET(req: Request) {
 
   const textEmbedding = await generateTextEmbedding(`a photo of ${query}`);
 
-  const images = await db
-    .collection("images")
-    .find({ embedding: { $exists: true, $not: { $size: 0 } } })
-    .toArray();
+  const images = await db.collection("images").find({}).toArray();
 
   const results = images
-    .map((img) => ({
-      ...img,
-      _id: img._id.toString(),
-      embedding: undefined,
-      score: Array.isArray(img.embedding)
-        ? dotProduct(textEmbedding, img.embedding as number[])
-        : 0,
-    }))
-    .filter((img) => img.score > SIMILARITY_THRESHOLD)
-    .sort((a, b) => b.score - a.score)
+    .map((img) => {
+      const embScore =
+        Array.isArray(img.embedding) && img.embedding.length > 0
+          ? dotProduct(textEmbedding, img.embedding as number[])
+          : 0;
+      const hasTextMatch = textMatch(img.tags, img.caption, query);
+
+      return {
+        ...img,
+        _id: img._id.toString(),
+        embedding: undefined,
+        score: embScore,
+        tagMatch: hasTextMatch,
+      };
+    })
+    .filter((img) => img.score > SIMILARITY_THRESHOLD || img.tagMatch)
+    .sort((a, b) => {
+      const aEff = a.tagMatch ? Math.max(a.score, SIMILARITY_THRESHOLD + 0.02) : a.score;
+      const bEff = b.tagMatch ? Math.max(b.score, SIMILARITY_THRESHOLD + 0.02) : b.score;
+      return bEff - aEff;
+    })
     .slice(0, MAX_RESULTS);
 
   return Response.json(results);

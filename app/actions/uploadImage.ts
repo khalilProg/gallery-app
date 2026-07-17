@@ -2,7 +2,7 @@
 
 import { getDb } from "@/lib/mongodb";
 import { getS3 } from "@/lib/garage";
-import { generateImageEmbedding, autoTagImage } from "@/lib/embeddings";
+import { generateImageEmbedding, generateCaptionAndTags } from "@/lib/embeddings";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { incrementUploads } from "@/lib/metrics";
 
@@ -14,7 +14,6 @@ export type UploadResult =
   | { success: false; error: string };
 
 export async function uploadImage(formData: FormData): Promise<UploadResult> {
-  // ── 1. Validate ──────────────────────────────────────────────────────────
   const file = formData.get("file");
   if (!(file instanceof File)) return { success: false, error: "No file provided." };
   if (!ALLOWED_TYPES.includes(file.type))
@@ -25,7 +24,6 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
       error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 50 MB.`,
     };
 
-  // ── 2. Upload to Garage S3 ────────────────────────────────────────────────
   const buffer = Buffer.from(await file.arrayBuffer());
   const key = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
 
@@ -45,17 +43,17 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
 
   const url = `/api/proxy/${key}`;
 
-  // ── 3. Generate CLIP image embedding ─────────────────────────────────────
   let embedding: number[] = [];
   let tags: string[] = [];
+  let caption = "";
   try {
     embedding = await generateImageEmbedding(buffer);
-    tags = await autoTagImage(embedding);
+    ({ caption, tags } = await generateCaptionAndTags(buffer));
+    console.log(`[upload] caption: "${caption}" | tags: [${tags.join(", ")}]`);
   } catch (err) {
     console.error("[uploadImage] Embedding/tagging failed:", err);
   }
 
-  // ── 5. Save to MongoDB ────────────────────────────────────────────────────
   try {
     const db = await getDb();
     const result = await db.collection("images").insertOne({
@@ -66,6 +64,7 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
       contentType: file.type,
       embedding,
       tags,
+      caption,
       embeddingModel: "Xenova/clip-vit-base-patch32",
       createdAt: new Date(),
     });

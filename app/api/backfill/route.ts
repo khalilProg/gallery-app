@@ -1,29 +1,32 @@
 import { getDb } from "@/lib/mongodb";
-import { generateImageEmbedding, autoTagImage } from "@/lib/embeddings";
+import { generateImageEmbedding, generateCaptionAndTags } from "@/lib/embeddings";
 
 export const maxDuration = 300;
 
 export async function POST() {
   const db = await getDb();
-
   const images = await db.collection("images").find({}).toArray();
 
   if (images.length === 0) {
-    return Response.json({ message: "All images already have embeddings.", updated: 0 });
+    return Response.json({ message: "No images found.", updated: 0 });
   }
 
   let updated = 0;
   const errors: string[] = [];
+  const results: Array<{ filename: string; caption: string; tags: string[] }> = [];
 
   for (const img of images) {
     try {
       const imageUrl = `http://localhost:3000${img.url}`;
       const res = await fetch(imageUrl);
-      if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${imageUrl}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${imageUrl}`);
 
       const buffer = Buffer.from(await res.arrayBuffer());
-      const embedding = await generateImageEmbedding(buffer);
-      const tags = await autoTagImage(embedding);
+
+      const [embedding, { caption, tags }] = await Promise.all([
+        generateImageEmbedding(buffer),
+        generateCaptionAndTags(buffer),
+      ]);
 
       await db.collection("images").updateOne(
         { _id: img._id },
@@ -31,16 +34,21 @@ export async function POST() {
           $set: {
             embedding,
             tags,
+            caption,
             embeddingModel: "Xenova/clip-vit-base-patch32",
+            captionModel: "Xenova/blip-image-captioning-base",
           },
         }
       );
 
       updated++;
-      console.log(`[backfill] ✓ ${img.filename ?? img.key} — tags: ${tags.join(", ")}`);
+      results.push({ filename: img.filename ?? img.key, caption, tags });
+      console.log(`[backfill] ✓ ${img.filename ?? img.key}`);
+      console.log(`           caption: "${caption}"`);
+      console.log(`           tags:    [${tags.join(", ")}]`);
     } catch (err) {
-      const msg = `[backfill] ✗ ${img.filename ?? img._id}: ${(err as Error).message}`;
-      console.error(msg);
+      const msg = `✗ ${img.filename ?? String(img._id)}: ${(err as Error).message}`;
+      console.error(`[backfill] ${msg}`);
       errors.push(msg);
     }
   }
@@ -48,6 +56,7 @@ export async function POST() {
   return Response.json({
     message: `Backfill complete. Updated ${updated}/${images.length} images.`,
     updated,
+    results,
     errors,
   });
 }

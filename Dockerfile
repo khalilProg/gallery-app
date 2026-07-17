@@ -21,6 +21,8 @@ ENV GARAGE_ACCESS_KEY=$GARAGE_ACCESS_KEY
 ENV GARAGE_SECRET_KEY=$GARAGE_SECRET_KEY
 ENV GARAGE_BUCKET=$GARAGE_BUCKET
 
+RUN node scripts/download-models.mjs
+
 RUN npm run build
 
 
@@ -41,6 +43,10 @@ COPY --from=builder /app/next.config.* ./
 
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/app/actions ./app/actions
+COPY --from=builder /app/scripts ./scripts
+
+COPY --from=builder /app/node_modules/@huggingface/transformers/.cache \
+     ./node_modules/@huggingface/transformers/.cache
 
 EXPOSE 3000
 
