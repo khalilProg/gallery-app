@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Header from "./components/Header";
 import ImageGrid from "./components/ImageGrid";
 
 export default function Home() {
   const [refreshKey, setRefreshKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -13,8 +14,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <Header onUploaded={refresh} />
-      <ImageGrid key={refreshKey} />
+      <Header onUploaded={refresh} onSearch={setSearchQuery} />
+      <ImageGrid key={refreshKey} searchQuery={searchQuery} />
     </main>
   );
 }
