@@ -50,11 +50,9 @@ export async function uploadImage(formData: FormData): Promise<UploadResult> {
   let tags: string[] = [];
   try {
     embedding = await generateImageEmbedding(buffer);
-    // ── 4. Auto-tag using the embedding (no extra model load) ────────────
     tags = await autoTagImage(embedding);
   } catch (err) {
     console.error("[uploadImage] Embedding/tagging failed:", err);
-    // Non-fatal — image is saved without embedding/tags
   }
 
   // ── 5. Save to MongoDB ────────────────────────────────────────────────────

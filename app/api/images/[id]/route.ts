@@ -12,7 +12,6 @@ export async function DELETE(
 
   const db = await getDb();
 
-  // Find the image metadata in MongoDB
   const image = await db.collection("images").findOne({
     _id: new ObjectId(id),
   });
@@ -21,7 +20,6 @@ export async function DELETE(
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  // 1. Delete the file from Garage (S3)
   await getS3().send(
     new DeleteObjectCommand({
       Bucket: process.env.GARAGE_BUCKET!,
@@ -29,7 +27,6 @@ export async function DELETE(
     })
   );
 
-  // 2. Remove the metadata from MongoDB
   await db.collection("images").deleteOne({ _id: new ObjectId(id) });
 
   incrementDeletions();

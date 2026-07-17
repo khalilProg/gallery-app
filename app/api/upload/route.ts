@@ -15,7 +15,6 @@ export async function POST(req: Request) {
 
   const key = `${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
 
-  // 1. Upload image to Garage (S3-compatible object storage)
   await getS3().send(
     new PutObjectCommand({
       Bucket: process.env.GARAGE_BUCKET!,
@@ -27,7 +26,6 @@ export async function POST(req: Request) {
 
   const url = `/api/proxy/${key}`;
 
-  // 2. Save metadata (key, url, filename, size, type) in MongoDB
   const db = await getDb();
 
   const result = await db.collection("images").insertOne({

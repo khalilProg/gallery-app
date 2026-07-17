@@ -36,7 +36,6 @@ export default function Header({ onUploaded, onSearch }: Props) {
           borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        {/* Brand */}
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xl">🖼️</span>
           <h1 className="text-base font-bold tracking-tight text-white">Gallery</h1>
@@ -52,7 +51,6 @@ export default function Header({ onUploaded, onSearch }: Props) {
           </span>
         </div>
 
-        {/* Search bar */}
         <div className="relative flex-1 max-w-md mx-auto">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
             🔍
@@ -78,7 +76,6 @@ export default function Header({ onUploaded, onSearch }: Props) {
           )}
         </div>
 
-        {/* Upload button */}
         <button
           id="open-upload-modal"
           onClick={() => setOpen(true)}

@@ -51,7 +51,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
     const formData = new FormData();
     formData.append("file", file);
 
-    // After a short delay simulate the embedding stage label
     const embeddingTimer = setTimeout(() => setStage("embedding"), 1200);
 
     startTransition(async () => {
@@ -60,7 +59,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
 
       if (result.success) {
         setStage("done");
-        // Auto-close after showing success for 1.4 s
         setTimeout(() => {
           onUploaded?.();
           onClose();
@@ -92,7 +90,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
           border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div>
             <h2 className="text-lg font-semibold text-white">Upload Image</h2>
@@ -109,7 +106,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Drop Zone */}
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
@@ -133,14 +129,12 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
 
             {preview ? (
               <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={preview}
                   alt="Preview"
                   className="w-full max-h-56 object-contain"
                   style={{ display: "block" }}
                 />
-                {/* Processing overlay */}
                 {isProcessing && (
                   <div
                     className="absolute inset-0 flex flex-col items-center justify-center gap-2"
@@ -155,7 +149,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
                     )}
                   </div>
                 )}
-                {/* Success overlay */}
                 {stage === "done" && (
                   <div
                     className="absolute inset-0 flex flex-col items-center justify-center gap-2"
@@ -177,7 +170,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
             )}
           </div>
 
-          {/* File info */}
           {file && stage === "idle" && (
             <div className="flex items-center gap-2 text-xs text-gray-400 bg-white/5 rounded-lg px-3 py-2">
               <span className="opacity-50">📄</span>
@@ -193,7 +185,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
             </div>
           )}
 
-          {/* Error banner */}
           {error && (
             <div className="flex items-start gap-2 bg-red-950/60 border border-red-500/30 rounded-lg px-3 py-2 text-sm text-red-300">
               <span className="shrink-0 mt-0.5">⚠️</span>
@@ -201,7 +192,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={onClose}

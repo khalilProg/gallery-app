@@ -21,7 +21,6 @@ export async function GET(
       return new Response("Not found", { status: 404 });
     }
 
-    // Stream the S3 object through Next.js to the browser
     const stream = body.transformToWebStream();
 
     return new Response(stream, {

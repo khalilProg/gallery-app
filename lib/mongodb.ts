@@ -1,10 +1,6 @@
 import { MongoClient, Db } from "mongodb";
 
-// Prevent multiple connections during Next.js hot reload in dev.
-// The client is created lazily inside getDb() so that the Next.js build
-// process never instantiates MongoClient (and never needs MONGO_URI).
 declare global {
-  // eslint-disable-next-line no-var
   var _mongoClient: MongoClient | undefined;
 }
 

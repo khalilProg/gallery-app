@@ -35,7 +35,6 @@ export default function ImageCard({
       onMouseLeave={() => setHover(false)}
       style={{ background: "rgba(255,255,255,0.04)" }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image.url}
         alt={image.filename ?? "Gallery image"}
@@ -43,13 +42,11 @@ export default function ImageCard({
         style={{ opacity: deleting ? 0.3 : 1, transform: hover ? "scale(1.03)" : "scale(1)" }}
       />
 
-      {/* Hover overlay */}
       {hover && !deleting && (
         <div
           className="absolute inset-0 flex flex-col justify-between p-2"
           style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)" }}
         >
-          {/* Delete button */}
           <div className="flex justify-end">
             <button
               onClick={handleDelete}
@@ -60,7 +57,6 @@ export default function ImageCard({
             </button>
           </div>
 
-          {/* Tags at bottom */}
           {image.tags && image.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {image.tags.slice(0, 4).map((tag) => (
@@ -77,7 +73,6 @@ export default function ImageCard({
         </div>
       )}
 
-      {/* Similarity score badge (shown during search) */}
       {image.score !== undefined && image.score > 0 && (
         <div
           className="absolute top-2 left-2 text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
@@ -87,7 +82,6 @@ export default function ImageCard({
         </div>
       )}
 
-      {/* Deleting overlay */}
       {deleting && (
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-sm text-white">Deleting…</span>

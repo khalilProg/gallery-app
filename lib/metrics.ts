@@ -1,6 +1,5 @@
 import client from 'prom-client';
 
-// Use a global singleton to survive hot-reloads in development
 const globalForMetrics = globalThis as typeof globalThis & {
   _promRegistry?: client.Registry;
   _galleryMetrics?: GalleryMetrics;
@@ -15,7 +14,6 @@ interface GalleryMetrics {
 function createRegistry(): { registry: client.Registry; metrics: GalleryMetrics } {
   const registry = new client.Registry();
 
-  // Collect default Node.js metrics (heap, event loop, etc.)
   client.collectDefaultMetrics({ register: registry });
 
   const uploadsTotal = new client.Counter({

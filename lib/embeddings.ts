@@ -1,103 +1,93 @@
 import "server-only";
-import { pipeline } from "@huggingface/transformers";
+import {
+  AutoTokenizer,
+  CLIPTextModelWithProjection,
+  AutoProcessor,
+  CLIPVisionModelWithProjection,
+  RawImage,
+} from "@huggingface/transformers";
 
-type Pipeline = Awaited<ReturnType<typeof pipeline>>;
+const MODEL_ID = "Xenova/clip-vit-base-patch32";
 
-let imageExtractor: Pipeline | null = null;
-let textExtractor: Pipeline | null = null;
+let tokenizer: Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>> | null = null;
+let textModel: Awaited<ReturnType<typeof CLIPTextModelWithProjection.from_pretrained>> | null = null;
+let processor: Awaited<ReturnType<typeof AutoProcessor.from_pretrained>> | null = null;
+let visionModel: Awaited<ReturnType<typeof CLIPVisionModelWithProjection.from_pretrained>> | null = null;
 let tagEmbeddingsCache: Map<string, number[]> | null = null;
 
 export const CANDIDATE_TAGS = [
-  // Food & drink
   "pizza", "burger", "sushi", "pasta", "salad", "rice", "soup", "sandwich",
   "cake", "dessert", "coffee", "fruit", "vegetables", "seafood", "meat",
   "breakfast", "street food", "snack", "food",
-  // Nature
   "beach", "ocean", "mountain", "forest", "sky", "sunset", "flowers", "garden",
   "lake", "river", "snow", "nature",
-  // Animals
   "cat", "dog", "bird", "horse", "fish", "wildlife",
-  // People
   "person", "portrait", "selfie", "family", "crowd",
-  // Activities
   "sports", "running", "gym", "yoga", "cooking", "travel",
-  // Places
   "city", "building", "street", "indoor", "outdoor", "architecture",
-  // Objects
   "car", "computer", "phone", "art", "fashion", "music",
 ];
 
-/** Dot product — equals cosine similarity when vectors are L2-normalised */
 export function dotProduct(a: number[], b: number[]): number {
   let s = 0;
   for (let i = 0; i < a.length; i++) s += a[i] * b[i];
   return s;
 }
 
-async function getImageExtractor(): Promise<Pipeline> {
-  if (!imageExtractor) {
-    imageExtractor = await pipeline(
-      "image-feature-extraction",
-      "Xenova/clip-vit-base-patch32",
-      { dtype: "fp32" }
-    );
-  }
-  return imageExtractor;
+function l2normalize(v: number[]): number[] {
+  const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+  return norm === 0 ? v : v.map((x) => x / norm);
 }
 
-async function getTextExtractor(): Promise<Pipeline> {
-  if (!textExtractor) {
-    textExtractor = await pipeline(
-      "feature-extraction",
-      "Xenova/clip-vit-base-patch32",
-      { dtype: "fp32" }
-    );
+async function getTextPipeline() {
+  if (!tokenizer) {
+    tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID);
   }
-  return textExtractor;
+  if (!textModel) {
+    textModel = await CLIPTextModelWithProjection.from_pretrained(MODEL_ID, { dtype: "fp32" } as any);
+  }
+  return { tokenizer, textModel };
 }
 
-/** Generate a 512-dim CLIP image embedding from a Buffer or Blob */
-export async function generateImageEmbedding(input: Buffer | Blob): Promise<number[]> {
-  const blob =
-    input instanceof Blob
-      ? input
-      : new Blob([input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength) as ArrayBuffer], {
-          type: "image/jpeg",
-        });
-
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const model = await getImageExtractor();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const output = await (model as any)(objectUrl, { pooling: "mean", normalize: true });
-    return Array.from(output.data as Float32Array);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+async function getVisionPipeline() {
+  if (!processor) {
+    processor = await AutoProcessor.from_pretrained(MODEL_ID);
   }
+  if (!visionModel) {
+    visionModel = await CLIPVisionModelWithProjection.from_pretrained(MODEL_ID, { dtype: "fp32" } as any);
+  }
+  return { processor, visionModel };
 }
 
-/** Generate a 512-dim CLIP text embedding — lives in the same space as image embeddings */
 export async function generateTextEmbedding(text: string): Promise<number[]> {
-  const model = await getTextExtractor();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const output = await (model as any)(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data as Float32Array);
+  const { tokenizer, textModel } = await getTextPipeline();
+  const inputs = await (tokenizer as any)(text, { padding: true, truncation: true });
+  const { text_embeds } = await (textModel as any)(inputs);
+  const vec = Array.from(text_embeds.data as Float32Array);
+  return l2normalize(vec);
 }
 
-/**
- * Auto-tag an image using its already-computed embedding.
- * Compares against cached text embeddings of CANDIDATE_TAGS and returns
- * the top-K labels above the similarity threshold.
- */
+export async function generateImageEmbedding(input: Buffer | Blob): Promise<number[]> {
+  const { processor, visionModel } = await getVisionPipeline();
+
+  const arrayBuffer =
+    input instanceof Blob
+      ? await input.arrayBuffer()
+      : input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength) as ArrayBuffer;
+
+  const image = await RawImage.fromBlob(new Blob([arrayBuffer]));
+  const inputs = await (processor as any)(image);
+  const { image_embeds } = await (visionModel as any)(inputs);
+  const vec = Array.from(image_embeds.data as Float32Array);
+  return l2normalize(vec);
+}
+
 export async function autoTagImage(imageEmbedding: number[], topK = 5): Promise<string[]> {
-  // Build tag embedding cache once per process lifetime
   if (!tagEmbeddingsCache) {
-    const model = await getTextExtractor();
     tagEmbeddingsCache = new Map();
     for (const tag of CANDIDATE_TAGS) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const out = await (model as any)(`a photo of ${tag}`, { pooling: "mean", normalize: true });
-      tagEmbeddingsCache.set(tag, Array.from(out.data as Float32Array));
+      const emb = await generateTextEmbedding(`a photo of ${tag}`);
+      tagEmbeddingsCache.set(tag, emb);
     }
   }
 

@@ -30,12 +30,10 @@ export default function ImageGrid({ searchQuery = "" }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Initial load
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  // Semantic search when query changes
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -77,7 +75,6 @@ export default function ImageGrid({ searchQuery = "" }: Props) {
 
   return (
     <div className="p-4">
-      {/* Search status bar */}
       {searchQuery && (
         <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
           {searching ? (
