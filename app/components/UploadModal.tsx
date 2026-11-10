@@ -49,7 +49,7 @@ export default function UploadModal({
 
         <input
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
           onChange={(e) => {
             setFile(e.target.files?.[0] || null);
             setError(null);

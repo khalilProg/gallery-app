@@ -61,6 +61,8 @@ cp .env .env.local
 npm ci
 ```
 
+If Sharp tries to compile against a system-installed libvips and the install fails, run `SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm ci` to use its bundled binaries.
+
 In `.env.local`, change the MongoDB hostname from `mongo` to `localhost` and set `GARAGE_ENDPOINT=http://localhost:3900`. Then run:
 
 ```bash

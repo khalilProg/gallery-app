@@ -18,12 +18,22 @@ export default function ImageCard({
 }) {
   const [hover, setHover] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleDelete() {
     if (!confirm("Delete this image?")) return;
     setDeleting(true);
-    await fetch(`/api/images/${image._id}`, { method: "DELETE" });
-    onDeleted(image._id);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/images/${image._id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Delete failed");
+      onDeleted(image._id);
+    } catch {
+      setDeleteError("Could not delete. Try again.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -48,6 +58,12 @@ export default function ImageCard({
         >
           🗑
         </button>
+      )}
+
+      {deleteError && (
+        <p role="alert" className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gray-950/90 p-2 text-sm text-red-300">
+          {deleteError}
+        </p>
       )}
 
       {deleting && (
