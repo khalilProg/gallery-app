@@ -48,19 +48,14 @@ services:
 
   gallery:
     container_name: gallery-app
+    image: gallery-app:local
     restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - MONGO_URI=${MONGO_URI}
-        - GARAGE_ENDPOINT=${GARAGE_ENDPOINT}
-        - GARAGE_ACCESS_KEY=${GARAGE_ACCESS_KEY}
-        - GARAGE_SECRET_KEY=${GARAGE_SECRET_KEY}
-        - GARAGE_BUCKET=${GARAGE_BUCKET}
     ports:
       - "3000:3000"
-    environment:
+    environment: &gallery-environment
       - MONGO_URI=${MONGO_URI}
       - GARAGE_ENDPOINT=${GARAGE_ENDPOINT}
       - GARAGE_ACCESS_KEY=${GARAGE_ACCESS_KEY}
@@ -69,6 +64,17 @@ services:
     depends_on:
       - mongo
       - garage
+    networks:
+      - gallery-network
+
+  indexer:
+    image: gallery-app:local
+    pull_policy: never
+    restart: unless-stopped
+    command: ["node", "scripts/index-images.ts"]
+    environment: *gallery-environment
+    depends_on:
+      - gallery
     networks:
       - gallery-network
 

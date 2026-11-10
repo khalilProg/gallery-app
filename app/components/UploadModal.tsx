@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { uploadImage } from "@/app/actions/uploadImage";
+import { useRef, useState } from "react";
 
-type UploadStage = "idle" | "uploading" | "embedding" | "done" | "error";
+type UploadStage = "idle" | "uploading" | "error";
 
 interface Props {
   onClose: () => void;
@@ -17,9 +16,8 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [, startTransition] = useTransition();
 
-  const isProcessing = stage === "uploading" || stage === "embedding";
+  const isProcessing = stage === "uploading";
 
   function applyFile(f: File) {
     setFile(f);
@@ -51,30 +49,23 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const embeddingTimer = setTimeout(() => setStage("embedding"), 1200);
-
-    startTransition(async () => {
-      const result = await uploadImage(formData);
-      clearTimeout(embeddingTimer);
-
-      if (result.success) {
-        setStage("done");
-        setTimeout(() => {
-          onUploaded?.();
-          onClose();
-        }, 1400);
-      } else {
-        setStage("error");
-        setError(result.error);
+    try {
+      const response = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error ?? "Upload failed. Try again.");
       }
-    });
+      onUploaded?.();
+      onClose();
+    } catch (error) {
+      setStage("error");
+      setError(error instanceof Error ? error.message : "Upload failed. Try again.");
+    }
   }
 
   const stageLabel = {
     idle: "Upload",
     uploading: "Uploading to storage…",
-    embedding: "Generating AI embedding…",
-    done: "✓ Done!",
     error: "Retry",
   }[stage];
 
@@ -93,7 +84,7 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div>
             <h2 className="text-lg font-semibold text-white">Upload Image</h2>
-            <p className="text-xs text-gray-500 mt-0.5">AI embedding generated automatically</p>
+            <p className="text-xs text-gray-500 mt-0.5">Search indexing runs after upload</p>
           </div>
           <button
             onClick={onClose}
@@ -121,7 +112,7 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
               onChange={handleFileChange}
               className="sr-only"
               disabled={isProcessing}
@@ -129,6 +120,7 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
 
             {preview ? (
               <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={preview}
                   alt="Preview"
@@ -142,20 +134,6 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
                   >
                     <Spinner />
                     <span className="text-sm text-white font-medium">{stageLabel}</span>
-                    {stage === "embedding" && (
-                      <span className="text-xs text-indigo-300">
-                        CLIP model · may take a few seconds on first run
-                      </span>
-                    )}
-                  </div>
-                )}
-                {stage === "done" && (
-                  <div
-                    className="absolute inset-0 flex flex-col items-center justify-center gap-2"
-                    style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
-                  >
-                    <span className="text-5xl">✅</span>
-                    <span className="text-sm text-emerald-400 font-semibold">Uploaded successfully!</span>
                   </div>
                 )}
               </div>
@@ -203,13 +181,10 @@ export default function UploadModal({ onClose, onUploaded }: Props) {
 
             <button
               onClick={handleUpload}
-              disabled={!file || isProcessing || stage === "done"}
+              disabled={!file || isProcessing}
               className="relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                background:
-                  stage === "done"
-                    ? "linear-gradient(135deg, #059669, #10b981)"
-                    : "linear-gradient(135deg, #6366f1, #818cf8)",
+                background: "linear-gradient(135deg, #6366f1, #818cf8)",
                 color: "white",
                 boxShadow: isProcessing ? "none" : "0 0 20px rgba(99,102,241,0.3)",
               }}

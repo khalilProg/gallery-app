@@ -5,13 +5,12 @@
  * nature, places, and objects — no hardcoded domain restrictions.
  * Add labels here to support new domains without changing any other code.
  */
-export const LABELS: string[] = [
-  // ── Specific animals ──────────────────────────────────────────────────────
-  "tiger", "white tiger", "lion", "leopard", "cheetah", "jaguar", "puma", "lynx", "cougar",
-  "panda", "red panda", "polar bear", "brown bear", "grizzly bear", "black bear",
+export const ANIMALS = [
+  "tiger", "white tiger", "Bengal tiger", "lion", "lioness", "leopard", "cheetah", "jaguar", "puma", "lynx", "cougar",
+  "panda", "giant panda", "red panda", "polar bear", "brown bear", "grizzly bear", "black bear",
   "wolf", "coyote", "jackal", "hyena",
   "fox", "fennec fox", "arctic fox", "red fox",
-  "dog", "puppy", "cat", "kitten", "rabbit", "hare",
+  "dog", "puppy", "golden retriever", "German shepherd", "cat", "kitten", "tabby cat", "rabbit", "hare",
   "deer", "elk", "moose", "reindeer", "gazelle", "antelope", "ibex",
   "zebra", "horse", "donkey", "mule",
   "giraffe", "elephant", "rhinoceros", "hippopotamus", "camel", "alpaca", "llama",
@@ -26,13 +25,14 @@ export const LABELS: string[] = [
   "goldfish", "clownfish", "tropical fish",
   "butterfly", "bee", "dragonfly", "ant", "spider",
   "wildlife", "animal", "bird", "reptile", "insect",
+];
 
-  // ── Food ─────────────────────────────────────────────────────────────────
+export const FOOD = [
   "pizza", "burger", "hamburger", "cheeseburger", "hot dog", "sandwich", "wrap",
   "taco", "burrito", "quesadilla", "nachos",
   "sushi", "sashimi", "ramen", "udon", "miso soup", "tempura", "onigiri",
-  "pasta", "spaghetti", "lasagna", "gnocchi", "risotto", "ravioli",
-  "rice", "fried rice", "paella", "biryani", "pilaf",
+  "pasta", "spaghetti", "lasagna", "gnocchi", "risotto", "ravioli", "penne", "fettuccine",
+  "rice", "steamed rice", "fried rice", "paella", "biryani", "pilaf",
   "bread", "baguette", "croissant", "bagel", "toast", "pita",
   "waffle", "pancake", "crepe",
   "donut", "cake", "cupcake", "pie", "tart", "cheesecake",
@@ -44,29 +44,31 @@ export const LABELS: string[] = [
   "steak", "grilled chicken", "fried chicken", "roast chicken", "barbecue",
   "grilled fish", "shrimp", "seafood",
   "egg", "omelette", "scrambled eggs", "fried egg",
-  "cheese", "butter", "yogurt",
+  "milk", "cheese", "butter", "yogurt", "cream", "kefir", "mozzarella", "cheddar", "feta", "parmesan",
   "coffee", "espresso", "latte", "cappuccino", "tea",
   "juice", "smoothie", "milkshake",
   "wine", "beer", "cocktail", "champagne",
+  "oats", "wheat", "lentils", "beans", "chickpeas", "potato",
   "fruit", "apple", "banana", "orange", "strawberry", "grapes",
   "watermelon", "mango", "pineapple", "avocado",
   "vegetables", "broccoli", "carrot", "corn", "tomato", "pepper",
   "food", "dish", "meal", "breakfast", "lunch", "dinner", "dessert", "snack", "street food",
+];
 
-  // ── Fashion & clothing ────────────────────────────────────────────────────
+export const CLOTHING = [
   "shirt", "t-shirt", "blouse", "polo shirt", "button-up shirt",
   "sweater", "pullover", "cardigan", "hoodie", "sweatshirt",
   "jacket", "leather jacket", "denim jacket", "bomber jacket",
-  "coat", "overcoat", "trench coat", "raincoat", "winter coat",
+  "coat", "overcoat", "trench coat", "raincoat", "winter coat", "puffer coat", "wool coat", "parka", "fur coat",
   "blazer", "suit", "tuxedo", "business suit",
   "dress", "evening gown", "cocktail dress", "sundress", "maxi dress",
-  "skirt", "mini skirt", "pleated skirt", "pencil skirt", "midi skirt",
+  "skirt", "mini skirt", "pleated skirt", "pencil skirt", "midi skirt", "maxi skirt", "denim skirt",
   "pants", "trousers", "jeans", "denim jeans", "chinos", "sweatpants",
   "shorts", "bermuda shorts",
   "leggings", "tights", "stockings",
   "socks", "ankle socks",
   "shoes", "sneakers", "boots", "ankle boots", "heels", "high heels",
-  "sandals", "loafers", "oxford shoes", "running shoes",
+  "sandals", "loafers", "oxford shoes", "running shoes", "winter boots",
   "hat", "cap", "baseball cap", "beanie", "beret", "fedora", "sun hat",
   "scarf", "tie", "bow tie", "gloves", "mittens", "belt",
   "bag", "handbag", "purse", "clutch", "backpack", "tote bag",
@@ -74,9 +76,10 @@ export const LABELS: string[] = [
   "jewelry", "necklace", "bracelet", "ring", "earrings",
   "uniform", "sportswear", "activewear", "swimsuit", "bikini",
   "traditional dress", "kimono", "sari", "kaftan", "djellaba", "abaya", "hijab",
-  "fashion", "clothing", "outfit", "wardrobe", "style",
+  "fashion", "clothing", "outfit",
+];
 
-  // ── Culture, geography & history ─────────────────────────────────────────
+const CULTURE = [
   "moroccan", "algerian", "tunisian", "libyan", "egyptian",
   "arabic", "middle eastern", "persian", "turkish", "ottoman",
   "greek", "roman", "byzantine", "ancient",
@@ -96,22 +99,24 @@ export const LABELS: string[] = [
   "monument", "statue", "sculpture", "obelisk",
   "market", "bazaar", "souk", "medina",
   "village", "countryside", "rural",
+];
 
-  // ── Nature & landscapes ───────────────────────────────────────────────────
-  "mountain", "volcano", "glacier", "iceberg", "hill", "valley",
+export const LANDSCAPES = [
+  "mountain", "mountain range", "mountain peak", "volcano", "glacier", "iceberg", "hill", "valley",
   "canyon", "gorge", "cliff", "rock formation",
   "waterfall", "river", "lake", "pond", "stream",
   "ocean", "sea", "bay", "coast", "beach", "shoreline",
   "desert", "dunes", "oasis", "savanna", "grassland", "plains",
   "forest", "rainforest", "jungle", "woodland",
-  "meadow", "field", "farm", "orchard", "vineyard",
+  "meadow", "field", "rice field", "rice plant", "rice paddy", "farm", "orchard", "vineyard",
   "garden", "park", "botanical garden",
   "sky", "clouds", "sunrise", "sunset", "night sky", "stars",
-  "snow", "ice", "fog", "rain", "storm",
+  "winter", "snow", "ice", "frost", "snowy landscape", "fog", "rain", "storm",
   "grass", "trees", "flowers", "moss", "coral reef",
   "nature", "landscape", "scenery", "environment",
+];
 
-  // ── Places & architecture ─────────────────────────────────────────────────
+const PLACES = [
   "city", "skyline", "downtown", "urban", "suburban",
   "building", "skyscraper", "tower", "apartment", "house", "villa",
   "bridge", "dam", "road", "highway", "railway",
@@ -123,8 +128,9 @@ export const LABELS: string[] = [
   "street", "alley", "square", "plaza",
   "interior", "room", "kitchen", "bedroom", "living room", "bathroom",
   "office", "workshop", "factory",
+];
 
-  // ── People & activities ───────────────────────────────────────────────────
+const PEOPLE = [
   "person", "man", "woman", "child", "baby", "elderly person",
   "portrait", "selfie", "family", "couple", "crowd", "group",
   "sports", "football", "soccer", "basketball", "tennis", "swimming",
@@ -135,8 +141,9 @@ export const LABELS: string[] = [
   "music", "concert", "dancing", "singing",
   "travel", "tourism", "adventure", "exploration",
   "graduation", "ceremony",
+];
 
-  // ── Objects & technology ──────────────────────────────────────────────────
+const OBJECTS = [
   "car", "truck", "motorcycle", "bicycle", "bus", "train", "airplane", "boat",
   "computer", "laptop", "phone", "smartphone", "tablet", "camera",
   "television", "speaker", "headphones",
@@ -150,3 +157,18 @@ export const LABELS: string[] = [
   "flower", "rose", "sunflower", "tulip", "orchid",
   "tree", "palm tree", "pine tree", "oak tree",
 ];
+
+export const LABELS = [...new Set([
+  ...ANIMALS, ...FOOD, ...CLOTHING, ...CULTURE, ...LANDSCAPES, ...PLACES, ...PEOPLE, ...OBJECTS,
+])];
+
+const animalLabels = new Set(ANIMALS);
+const clothingLabels = new Set(CLOTHING);
+const foodLabels = new Set(FOOD);
+
+export function labelPrompt(label: string) {
+  if (animalLabels.has(label)) return `a wildlife or pet photo showing ${label}`;
+  if (clothingLabels.has(label)) return `a fashion or product photo showing ${label}`;
+  if (foodLabels.has(label)) return `a food photo showing ${label}`;
+  return `a photo of ${label}`;
+}

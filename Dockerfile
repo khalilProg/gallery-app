@@ -5,26 +5,21 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
-ARG MONGO_URI
-ARG GARAGE_ENDPOINT
-ARG GARAGE_ACCESS_KEY
-ARG GARAGE_SECRET_KEY
-ARG GARAGE_BUCKET
-
-ENV MONGO_URI=$MONGO_URI
-ENV GARAGE_ENDPOINT=$GARAGE_ENDPOINT
-ENV GARAGE_ACCESS_KEY=$GARAGE_ACCESS_KEY
-ENV GARAGE_SECRET_KEY=$GARAGE_SECRET_KEY
-ENV GARAGE_BUCKET=$GARAGE_BUCKET
-
+ENV CLIP_CACHE_DIR=/app/model-cache
 RUN node scripts/download-models.mjs
-
 RUN npm run build
 
+
+# Install the runtime dependencies used by the standalone server and indexer.
+FROM node:24-slim AS production-dependencies
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # ---------- Production stage ----------
 FROM node:24-slim AS runner
@@ -32,22 +27,19 @@ FROM node:24-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV CLIP_CACHE_DIR=/app/model-cache
 
-COPY package.json package-lock.json ./
+ENV HOSTNAME=0.0.0.0
 
-RUN npm install --omit=dev && npm install typescript
-
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.* ./
-
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/model-cache ./model-cache
 COPY --from=builder /app/lib ./lib
-COPY --from=builder /app/app/actions ./app/actions
 COPY --from=builder /app/scripts ./scripts
-
-COPY --from=builder /app/node_modules/@huggingface/transformers/.cache \
-     ./node_modules/@huggingface/transformers/.cache
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

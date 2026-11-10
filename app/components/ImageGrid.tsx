@@ -1,121 +1,120 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import type { GalleryImage, GalleryIndexingUpdate, GalleryPage } from "@/lib/image-response";
 import ImageCard from "./ImageCard";
 
-interface ImageMeta {
-  _id: string;
-  url: string;
-  filename?: string;
-  tags?: string[];
-  createdAt: string;
-  score?: number;
+export default function ImageGrid({ searchQuery = "" }: { searchQuery?: string }) {
+  const query = searchQuery.trim();
+  return <GalleryResults key={query} query={query} />;
 }
 
-interface Props {
-  searchQuery?: string;
-}
-
-export default function ImageGrid({ searchQuery = "" }: Props) {
-  const [images, setImages] = useState<ImageMeta[]>([]);
+function GalleryResults({ query }: { query: string }) {
+  const [images, setImages] = useState<GalleryImage[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const loadAll = useCallback(() => {
-    setLoading(true);
-    fetch("/api/images")
-      .then((r) => r.json())
-      .then((data: ImageMeta[]) => setImages(data))
-      .finally(() => setLoading(false));
-  }, []);
+  const [error, setError] = useState(false);
+  const [request, setRequest] = useState<{ cursor: string | null }>({ cursor: null });
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    const controller = new AbortController();
+    const { cursor } = request;
+    const url = query ? `/api/search?q=${encodeURIComponent(query)}` : cursor ? `/api/images?cursor=${encodeURIComponent(cursor)}` : "/api/images";
+
+    void fetch(url, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Gallery request failed");
+        const result = await response.json();
+        const page: GalleryPage = query ? { images: result, nextCursor: null } : result;
+        if (controller.signal.aborted) return;
+
+        setImages((previous) => cursor ? [...previous, ...page.images] : page.images);
+        setNextCursor(page.nextCursor);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [query, request]);
+
+  const pendingIds = images
+    .filter((image) => image.indexingState === "pending")
+    .slice(0, 24)
+    .map((image) => image._id)
+    .join(",");
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!pendingIds) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
 
-    if (!searchQuery.trim()) {
-      loadAll();
-      return;
+    async function poll() {
+      try {
+        const response = await fetch(`/api/images/indexing?ids=${pendingIds}`, { signal: controller.signal });
+        if (!response.ok) return;
+        const updates: GalleryIndexingUpdate[] = await response.json();
+        if (controller.signal.aborted || updates.length === 0) return;
+        const byId = new Map(updates.map((update) => [update._id, update]));
+        setImages((previous) => previous.map((image) => {
+          const update = byId.get(image._id);
+          return update ? { ...image, ...update } : image;
+        }));
+      } catch {
+        // A transient status error is retried by the next poll.
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 4_000);
+      }
     }
 
-    debounceRef.current = setTimeout(() => {
-      setSearching(true);
-      fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`)
-        .then((r) => r.json())
-        .then((data: ImageMeta[]) => setImages(data))
-        .finally(() => setSearching(false));
-    }, 400);
-
+    timer = setTimeout(poll, 4_000);
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      controller.abort();
+      clearTimeout(timer);
     };
-  }, [searchQuery, loadAll]);
+  }, [pendingIds]);
 
   function handleDeleted(id: string) {
-    setImages((prev) => prev.filter((img) => img._id !== id));
+    setImages((previous) => previous.filter((image) => image._id !== id));
   }
 
-  if (loading) {
-    return (
-      <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-48 rounded-xl animate-pulse"
-            style={{ background: "rgba(255,255,255,0.05)" }}
-          />
-        ))}
-      </div>
-    );
+  function loadMore() {
+    setError(false);
+    setLoading(true);
+    setRequest({ cursor: nextCursor });
   }
 
   return (
-    <div className="p-4">
-      {searchQuery && (
-        <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
-          {searching ? (
-            <>
-              <span className="inline-block w-3 h-3 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
-              Searching for &ldquo;{searchQuery}&rdquo;…
-            </>
-          ) : (
-            <>
-              <span className="text-indigo-400">✦</span>
-              {images.length > 0
-                ? `${images.length} semantic match${images.length !== 1 ? "es" : ""} for "${searchQuery}"`
-                : `No matches for "${searchQuery}"`}
-            </>
-          )}
-        </div>
-      )}
-
-      {images.length === 0 && !searching ? (
-        searchQuery ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <span className="text-5xl opacity-20">🔍</span>
-            <p className="text-gray-400 font-medium">No images match &ldquo;{searchQuery}&rdquo;</p>
-            <p className="text-gray-600 text-sm">Try a different term — search uses AI similarity, not filenames.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <span className="text-5xl opacity-20">🖼️</span>
-            <p className="text-gray-400 font-medium">No images yet.</p>
-            <p className="text-gray-600 text-sm">
-              Click <strong className="text-indigo-400">+ Upload</strong> to add your first image.
-            </p>
-          </div>
-        )
-      ) : (
+    <section className="p-4">
+      {images.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {images.map((img) => (
-            <ImageCard key={img._id} image={img} onDeleted={handleDeleted} />
+          {images.map((image) => (
+            <ImageCard key={image._id} image={image} onDeleted={handleDeleted} />
           ))}
         </div>
       )}
-    </div>
+
+      {images.length === 0 && !loading && !error && !nextCursor && (
+        <div className="flex flex-col justify-center items-center h-64 gap-2">
+          <p className="text-gray-400 text-lg">{query ? `No images match “${query}”.` : "No images yet."}</p>
+          {!query && <p className="text-gray-600 text-sm">Click the + button to upload one.</p>}
+        </div>
+      )}
+
+      {(loading || error || nextCursor) && (
+        <div className="mt-4 flex flex-col items-center gap-2">
+          {loading && <p role="status" className="text-gray-400">Loading images…</p>}
+          {error && <p role="alert" className="text-red-300">Could not load images.</p>}
+          {!loading && (error || nextCursor) && (
+            <button type="button" onClick={loadMore} className="rounded-md border border-gray-600 px-4 py-2">
+              {error ? "Try again" : "Load more"}
+            </button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

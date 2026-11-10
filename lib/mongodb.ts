@@ -1,27 +1,20 @@
-import { MongoClient, Db } from "mongodb";
+import { MongoClient, type Db } from "mongodb";
 
-declare global {
-  var _mongoClient: MongoClient | undefined;
-}
-
-function getClient(): MongoClient {
-  const uri = process.env.MONGO_URI;
-  if (!uri) {
-    throw new Error("MONGO_URI environment variable is not set");
-  }
-
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClient) {
-      global._mongoClient = new MongoClient(uri);
-    }
-    return global._mongoClient;
-  }
-
-  return new MongoClient(uri);
-}
+// Create the client on first use, then share its connection pool across routes.
+const mongo = globalThis as typeof globalThis & { _mongoClient?: MongoClient };
 
 export async function getDb(): Promise<Db> {
-  const client = getClient();
-  await client.connect();
-  return client.db("gallery");
+  if (!mongo._mongoClient) {
+    const uri = process.env.MONGO_URI;
+    if (!uri) throw new Error("MONGO_URI environment variable is not set");
+    mongo._mongoClient = new MongoClient(uri);
+  }
+
+  await mongo._mongoClient.connect();
+  return mongo._mongoClient.db("gallery");
+}
+
+export async function closeDb() {
+  await mongo._mongoClient?.close();
+  mongo._mongoClient = undefined;
 }

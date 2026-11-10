@@ -41,9 +41,3 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ghcr.io/${{ env.REPO_OWNER }}/${{ env.IMAGE_NAME }}:latest
-          build-args: |
-            MONGO_URI=${{ secrets.MONGO_URI }}
-            GARAGE_ENDPOINT=${{ secrets.GARAGE_ENDPOINT }}
-            GARAGE_ACCESS_KEY=${{ secrets.GARAGE_ACCESS_KEY }}
-            GARAGE_SECRET_KEY=${{ secrets.GARAGE_SECRET_KEY }}
-            GARAGE_BUCKET=${{ secrets.GARAGE_BUCKET }}

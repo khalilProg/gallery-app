@@ -1,19 +1,20 @@
-import "server-only";
 import {
   AutoTokenizer,
   CLIPTextModelWithProjection,
   AutoProcessor,
   CLIPVisionModelWithProjection,
   RawImage,
+  env,
 } from "@huggingface/transformers";
-import { LABELS } from "./labels";
+import { LABELS, labelPrompt } from "./labels.ts";
+import { colorSubject, enrichTags, selectColor, selectVisualTags } from "./image-tags.ts";
+import { CLIP_MODEL } from "./indexing.ts";
 
 // ── Model IDs ────────────────────────────────────────────────────────────────
-const CLIP_MODEL = "Xenova/clip-vit-base-patch32";
+if (process.env.CLIP_CACHE_DIR) env.cacheDir = process.env.CLIP_CACHE_DIR;
 
 // ── Singleton model instances ─────────────────────────────────────────────────
-let tokenizer: Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>> | null = null;
-let textModel: Awaited<ReturnType<typeof CLIPTextModelWithProjection.from_pretrained>> | null = null;
+let textPipeline: ReturnType<typeof loadTextPipeline> | undefined;
 let processor: Awaited<ReturnType<typeof AutoProcessor.from_pretrained>> | null = null;
 let visionModel: Awaited<ReturnType<typeof CLIPVisionModelWithProjection.from_pretrained>> | null = null;
 
@@ -24,11 +25,9 @@ let visionModel: Awaited<ReturnType<typeof CLIPVisionModelWithProjection.from_pr
  */
 let labelEmbeddingCache: Map<string, number[]> | null = null;
 
-// ── Tagging config ────────────────────────────────────────────────────────────
-/** Minimum CLIP similarity score for a label to be assigned as a tag */
-const TAG_THRESHOLD = 0.245;
-/** Maximum number of tags to assign per image */
-const MAX_TAGS = 6;
+const colors = ["black", "white", "gray", "red", "pink", "purple", "blue", "green",
+  "yellow", "orange", "brown", "beige", "multicolored"];
+const colorEmbeddings = new Map<string, { neutral: number[]; alternatives: Map<string, number[]> }>();
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 /** Dot product — equals cosine similarity when both vectors are L2-normalised */
@@ -44,16 +43,21 @@ function l2normalize(v: number[]): number[] {
 }
 
 // ── CLIP text pipeline ────────────────────────────────────────────────────────
-async function getTextPipeline() {
-  if (!tokenizer) tokenizer = await AutoTokenizer.from_pretrained(CLIP_MODEL);
-  if (!textModel) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    textModel = await CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL, { dtype: "fp32" } as any);
-  }
+async function loadTextPipeline() {
+  const tokenizer = await AutoTokenizer.from_pretrained(CLIP_MODEL);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const textModel = await CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL, { dtype: "fp32" } as any);
   return { tokenizer, textModel };
 }
 
-// ── CLIP vision pipeline ──────────────────────────────────────────────────────
+function getTextPipeline() {
+  textPipeline ??= loadTextPipeline().catch((error: unknown) => {
+    textPipeline = undefined;
+    throw error;
+  });
+  return textPipeline;
+}
+
 async function getVisionPipeline() {
   if (!processor) processor = await AutoProcessor.from_pretrained(CLIP_MODEL);
   if (!visionModel) {
@@ -95,8 +99,7 @@ export async function generateImageEmbedding(input: Buffer | Blob): Promise<numb
 // ── Label embedding cache builder ─────────────────────────────────────────────
 /**
  * Builds (once per process) a map of label → CLIP text embedding.
- * All 500+ labels are embedded with the "a photo of <label>" prompt
- * that CLIP was trained on, maximising zero-shot accuracy.
+ * Labels with an ambiguous name get a prompt that includes their domain.
  */
 async function getLabelEmbeddings(): Promise<Map<string, number[]>> {
   if (labelEmbeddingCache) return labelEmbeddingCache;
@@ -105,7 +108,7 @@ async function getLabelEmbeddings(): Promise<Map<string, number[]>> {
   const cache = new Map<string, number[]>();
 
   for (const label of LABELS) {
-    const emb = await generateTextEmbedding(`a photo of ${label}`);
+    const emb = await generateTextEmbedding(labelPrompt(label));
     cache.set(label, emb);
   }
 
@@ -114,29 +117,31 @@ async function getLabelEmbeddings(): Promise<Map<string, number[]>> {
   return cache;
 }
 
-// ── Public: auto-tag image ────────────────────────────────────────────────────
-/**
- * Tags an image using CLIP zero-shot classification against a comprehensive
- * 500+ label taxonomy covering animals, food, fashion, culture, geography,
- * nature, and more.
- *
- * Uses the pre-computed image embedding (no extra model calls) and the
- * shared label embedding cache (built once, reused forever).
- *
- * Returns only labels whose CLIP similarity exceeds TAG_THRESHOLD,
- * capped at MAX_TAGS, sorted by confidence descending.
- */
+async function getColorEmbeddings(subject: string) {
+  const cached = colorEmbeddings.get(subject);
+  if (cached) return cached;
+
+  const neutral = await generateTextEmbedding(`a product photo of a ${subject}`);
+  const alternatives = new Map<string, number[]>();
+  for (const color of colors) {
+    alternatives.set(color, await generateTextEmbedding(`a product photo of a ${color} ${subject}`));
+  }
+  const result = { neutral, alternatives };
+  colorEmbeddings.set(subject, result);
+  return result;
+}
+
 export async function autoTagImage(imageEmbedding: number[]): Promise<string[]> {
   const labelEmbs = await getLabelEmbeddings();
+  const visual = selectVisualTags(Array.from(labelEmbs, ([label, embedding]) => ({
+    label, score: dotProduct(imageEmbedding, embedding),
+  })));
+  const subject = visual[0] ? colorSubject(visual[0]) : undefined;
+  if (!subject) return enrichTags(visual);
 
-  const scored: Array<{ label: string; score: number }> = [];
-  for (const [label, emb] of labelEmbs) {
-    scored.push({ label, score: dotProduct(imageEmbedding, emb) });
-  }
-
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .filter((t) => t.score > TAG_THRESHOLD)
-    .slice(0, MAX_TAGS)
-    .map((t) => t.label);
+  const { neutral, alternatives } = await getColorEmbeddings(subject);
+  const color = selectColor(Array.from(alternatives, ([label, embedding]) => ({
+    label, score: dotProduct(imageEmbedding, embedding),
+  })), dotProduct(imageEmbedding, neutral));
+  return enrichTags(visual, color ? `${color} ${subject}` : undefined);
 }

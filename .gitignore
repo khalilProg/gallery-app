@@ -46,6 +46,7 @@ next-env.d.ts
 
 garage-backup/
 mongo-backup/
+test-data/
 
 # IDEs and Editors
 .vscode/
