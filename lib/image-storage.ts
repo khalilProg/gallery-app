@@ -5,6 +5,15 @@ import { getDb } from "./mongodb";
 import { getS3 } from "./garage";
 import { incrementDeletions, incrementUploads } from "./metrics";
 
+function putObject(key: string, body: Buffer, contentType: string) {
+  return getS3().send(new PutObjectCommand({
+    Bucket: process.env.GARAGE_BUCKET!,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  }));
+}
+
 function deleteObject(key: string) {
   return getS3().send(new DeleteObjectCommand({
     Bucket: process.env.GARAGE_BUCKET!,
@@ -20,19 +29,15 @@ async function cleanUpUpload(key: string) {
   }
 }
 
-export async function saveImage(file: File, buffer: Buffer, contentType: string) {
+export async function saveImage(file: File, buffer: Buffer, contentType: string, thumbnail: Buffer) {
   const images = (await getDb()).collection("images");
   const id = new ObjectId();
   const key = randomUUID();
+  const thumbnailKey = `thumbnails/${key}.webp`;
   const url = `/api/proxy/${key}`;
 
   try {
-    await getS3().send(new PutObjectCommand({
-      Bucket: process.env.GARAGE_BUCKET!,
-      Key: key,
-      Body: buffer,
-      ContentType: contentType,
-    }));
+    await putObject(key, buffer, contentType);
   } catch (error) {
     // A failed response can arrive after Garage has stored the object.
     await cleanUpUpload(key);
@@ -40,9 +45,17 @@ export async function saveImage(file: File, buffer: Buffer, contentType: string)
   }
 
   try {
+    await putObject(thumbnailKey, thumbnail, "image/webp");
+  } catch (error) {
+    await Promise.all([cleanUpUpload(key), cleanUpUpload(thumbnailKey)]);
+    throw error;
+  }
+
+  try {
     await images.insertOne({
       _id: id,
       key,
+      thumbnailKey,
       url,
       filename: file.name,
       size: file.size,
@@ -56,7 +69,7 @@ export async function saveImage(file: File, buffer: Buffer, contentType: string)
       return undefined;
     });
     if (!saved) {
-      if (saved === null) await cleanUpUpload(key);
+      if (saved === null) await Promise.all([cleanUpUpload(key), cleanUpUpload(thumbnailKey)]);
       throw error;
     }
   }
@@ -71,6 +84,7 @@ export async function deleteImage(id: ObjectId) {
   if (!image) return;
 
   // Keep the key in MongoDB until Garage confirms deletion so a retry can finish.
+  if (image.thumbnailKey) await deleteObject(image.thumbnailKey);
   await deleteObject(image.key);
   const result = await images.deleteOne({ _id: id });
   if (result.deletedCount) incrementDeletions();

@@ -2,20 +2,17 @@
 
 import { useState } from "react";
 
-interface ImageMeta {
-  _id: string;
-  url: string;
-  filename?: string;
-  createdAt: string;
-}
+import type { GalleryImage } from "@/lib/image-response";
 
 export default function ImageCard({
   image,
   onDeleted,
 }: {
-  image: ImageMeta;
+  image: GalleryImage;
   onDeleted: (id: string) => void;
 }) {
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const thumbnailUrl = thumbnailFailed ? undefined : image.thumbnailUrl;
   const [hover, setHover] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -44,7 +41,10 @@ export default function ImageCard({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={image.url}
+        src={thumbnailUrl ?? image.url}
+        loading="lazy"
+        decoding="async"
+        onError={thumbnailUrl ? () => setThumbnailFailed(true) : undefined}
         alt={image.filename ?? "Gallery image"}
         className="w-full h-48 object-cover rounded-lg transition-opacity duration-200"
         style={{ opacity: deleting ? 0.4 : 1 }}

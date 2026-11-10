@@ -52,13 +52,18 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   let contentType: string;
+  let thumbnail: Buffer;
   try {
     const image = sharp(buffer, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: "warning" });
     const { format, compression } = await image.metadata();
     const detected = format === "heif" && compression === "av1" ? "avif" : format;
     contentType = CONTENT_TYPES[detected];
     if (!contentType) throw new Error("Unsupported image format");
-    await image.resize(1, 1).raw().toBuffer();
+    thumbnail = await image
+      .autoOrient()
+      .resize(640, 640, { fit: "inside", withoutEnlargement: true })
+      .webp()
+      .toBuffer();
   } catch {
     return Response.json({
       error: "Use a valid JPEG, PNG, WebP, GIF, or AVIF image up to 40 megapixels.",
@@ -66,7 +71,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    return Response.json(await saveImage(file, buffer, contentType));
+    return Response.json(await saveImage(file, buffer, contentType, thumbnail));
   } catch (error) {
     console.error("Image upload failed", error);
     return Response.json({ error: "Could not save the image. Try again." }, { status: 503 });

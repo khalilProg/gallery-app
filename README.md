@@ -71,6 +71,12 @@ npm run dev
 
 The gallery is available at [http://localhost:3000](http://localhost:3000).
 
+## Gallery pagination
+
+The gallery loads 24 images at a time. New uploads get a WebP thumbnail, and older images use their original file until a thumbnail is available.
+
+`GET /api/images` returns `{ images, nextCursor }`. For the next page, pass the URL-encoded `nextCursor` as the `cursor` query parameter. A `null` cursor means the last page has been reached.
+
 ## Build and verify
 
 CI installs from the npm lockfile, runs lint and type checks, and builds the production image. The image uses the Next.js standalone server. Compose supplies database and Garage credentials at runtime.
