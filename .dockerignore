@@ -4,3 +4,8 @@ node_modules
 Dockerfile*
 docker-compose*
 npm-debug.log
+.env*
+.npmrc
+garage-backup
+mongo-backup
+test-data

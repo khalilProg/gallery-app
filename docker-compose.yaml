@@ -52,12 +52,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - MONGO_URI=${MONGO_URI}
-        - GARAGE_ENDPOINT=${GARAGE_ENDPOINT}
-        - GARAGE_ACCESS_KEY=${GARAGE_ACCESS_KEY}
-        - GARAGE_SECRET_KEY=${GARAGE_SECRET_KEY}
-        - GARAGE_BUCKET=${GARAGE_BUCKET}
     ports:
       - "3000:3000"
     environment:

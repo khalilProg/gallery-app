@@ -5,21 +5,9 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
-
-ARG MONGO_URI
-ARG GARAGE_ENDPOINT
-ARG GARAGE_ACCESS_KEY
-ARG GARAGE_SECRET_KEY
-ARG GARAGE_BUCKET
-
-ENV MONGO_URI=$MONGO_URI
-ENV GARAGE_ENDPOINT=$GARAGE_ENDPOINT
-ENV GARAGE_ACCESS_KEY=$GARAGE_ACCESS_KEY
-ENV GARAGE_SECRET_KEY=$GARAGE_SECRET_KEY
-ENV GARAGE_BUCKET=$GARAGE_BUCKET
 
 RUN npm run build
 
@@ -31,14 +19,12 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
+ENV HOSTNAME=0.0.0.0
 
-RUN npm install --omit=dev
-
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.* ./
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

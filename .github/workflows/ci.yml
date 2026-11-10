@@ -21,6 +21,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
 
       - name: install dependencies
         run: npm ci
@@ -32,11 +33,4 @@ jobs:
         run: npm run type-check
 
       - name: build docker image
-        run: |
-          docker build \
-            --build-arg MONGO_URI="${{ secrets.MONGO_URI }}" \
-            --build-arg GARAGE_ENDPOINT="${{ secrets.GARAGE_ENDPOINT }}" \
-            --build-arg GARAGE_ACCESS_KEY="${{ secrets.GARAGE_ACCESS_KEY }}" \
-            --build-arg GARAGE_SECRET_KEY="${{ secrets.GARAGE_SECRET_KEY }}" \
-            --build-arg GARAGE_BUCKET="${{ secrets.GARAGE_BUCKET }}" \
-            -t gallery:test .
+        run: docker build -t gallery:test .

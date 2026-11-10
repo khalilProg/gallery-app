@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Header from "./components/Header";
 import ImageGrid from "./components/ImageGrid";
 
