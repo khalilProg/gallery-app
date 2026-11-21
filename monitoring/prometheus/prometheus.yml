@@ -15,7 +15,7 @@ scrape_configs:
   - job_name: "gallery-app"
     metrics_path: "/api/metrics"
     static_configs:
-      - targets: ["gallery-app:3000"]
+      - targets: ["gallery:3000"]
   - job_name: "mongodb"
     static_configs:
       - targets: ["mongodb-exporter:9216"]

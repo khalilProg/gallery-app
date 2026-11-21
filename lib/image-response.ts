@@ -13,6 +13,7 @@ export interface GalleryImage {
 export interface GalleryPage {
   images: GalleryImage[];
   nextCursor: string | null;
+  warning?: string;
 }
 
 export interface GalleryIndexingUpdate {

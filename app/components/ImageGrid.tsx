@@ -13,26 +13,35 @@ function GalleryResults({ query }: { query: string }) {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | undefined>();
   const [request, setRequest] = useState<{ cursor: string | null }>({ cursor: null });
 
   useEffect(() => {
     const controller = new AbortController();
     const { cursor } = request;
-    const url = query ? `/api/search?q=${encodeURIComponent(query)}` : cursor ? `/api/images?cursor=${encodeURIComponent(cursor)}` : "/api/images";
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (cursor) params.set("cursor", cursor);
+    const url = `${query ? "/api/search" : "/api/images"}?${params}`;
 
-    void fetch(url, { signal: controller.signal })
+    void fetch(url, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Gallery request failed");
-        const result = await response.json();
-        const page: GalleryPage = query ? { images: result, nextCursor: null } : result;
+        if (!response.ok) {
+          const failure = await response.json().catch(() => null);
+          throw new Error(failure?.error ?? "Could not load photos. Try again.");
+        }
+        const page: GalleryPage = await response.json();
         if (controller.signal.aborted) return;
 
-        setImages((previous) => cursor ? [...previous, ...page.images] : page.images);
+        setImages((previous) => cursor
+          ? [...new Map([...previous, ...page.images].map((image) => [image._id, image])).values()]
+          : page.images);
+        setWarning(page.warning);
         setNextCursor(page.nextCursor);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setError(true);
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Could not load photos.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -82,7 +91,7 @@ function GalleryResults({ query }: { query: string }) {
   }
 
   function loadMore() {
-    setError(false);
+    setError(null);
     setLoading(true);
     setRequest({ cursor: nextCursor });
   }
@@ -105,6 +114,8 @@ function GalleryResults({ query }: { query: string }) {
         )}
       </div>
 
+      {warning && <p role="status" className="mb-4 text-sm text-amber-300">{warning}</p>}
+
       {images.length > 0 && (
         <div className="grid grid-cols-2 items-start gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
           {images.map((image) => (
@@ -123,7 +134,7 @@ function GalleryResults({ query }: { query: string }) {
       {(loading || error || nextCursor) && (
         <div className="mt-6 flex flex-col items-center gap-2">
           {loading && <p role="status" className="text-sm text-zinc-400">{query ? "Searching…" : "Loading photos…"}</p>}
-          {error && <p role="alert" className="text-sm text-red-300">{query ? "Could not search photos." : "Could not load photos."}</p>}
+          {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
           {!loading && (error || nextCursor) && (
             <button type="button" onClick={loadMore} className="button-secondary">
               {error ? "Try again" : "Load more"}

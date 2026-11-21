@@ -49,11 +49,21 @@ Set `GARAGE_BUCKET` to the bucket name, `GARAGE_ACCESS_KEY` to the **Key ID**, a
 docker compose up -d --build
 ```
 
-Open [the gallery](http://localhost:3000), [Grafana](http://localhost:3001), or [Prometheus](http://localhost:9090). Try uploading and deleting an image to confirm both storage services work. Use `docker compose down` to stop the stack while keeping its data volumes.
+Open [the gallery](http://localhost:3001), [Grafana](http://localhost:3002), or [Prometheus](http://localhost:9090). Try uploading and deleting an image to confirm both storage services work. Use `docker compose down` to stop the stack while keeping its data volumes.
+
+Gallery and OpsPilot run as separate Compose projects. Gallery uses the following ports.
+
+| Service | Host address | Container port |
+| --- | --- | --- |
+| Gallery | localhost:3001 | 3000 |
+| MongoDB | localhost:27018 | 27017 |
+| Grafana | localhost:3002 | 3000 |
+
+Gallery containers connect to MongoDB at `mongo:27017` on their own Compose network. Compose scopes the container, network, and volume names to this project. Run commands from this directory using the same Compose project name as your existing Gallery deployment to keep using its data volumes.
 
 ## Develop on the host
 
-Keep MongoDB and Garage running in Compose. If the containerized gallery is running, stop it to free port 3000. Copy the local env file so Next.js can override the Compose hostnames.
+Keep MongoDB and Garage running in Compose. If the containerized gallery is running, stop it to free port 3001. Copy the local env file so Next.js can override the Compose hostnames.
 
 ```bash
 docker compose stop gallery
@@ -63,19 +73,21 @@ npm ci
 
 If Sharp tries to compile against a system-installed libvips and the install fails, run `SHARP_IGNORE_GLOBAL_LIBVIPS=1 npm ci` to use its bundled binaries.
 
-In `.env.local`, change the MongoDB hostname from `mongo` to `localhost` and set `GARAGE_ENDPOINT=http://localhost:3900`. Then run:
+In `.env.local`, change `mongo:27017` in `MONGO_URI` to `localhost:27018` and set `GARAGE_ENDPOINT=http://localhost:3900`. Then run:
 
 ```bash
 npm run dev
 ```
 
-The gallery is available at [http://localhost:3000](http://localhost:3000).
+The gallery is available at [http://localhost:3001](http://localhost:3001).
 
 ## Gallery pagination
 
-The gallery loads 24 images at a time. New uploads get a WebP thumbnail, and older images use their original file until a thumbnail is available.
+The gallery and search load 12 images at a time. New uploads get a WebP thumbnail, and older images use their original file until a thumbnail is available.
 
 `GET /api/images` returns `{ images, nextCursor }`. For the next page, pass the URL-encoded `nextCursor` as the `cursor` query parameter. A `null` cursor means the last page has been reached.
+
+`GET /api/search?q=...` returns the same page structure. Pass both the same query and the returned cursor to load additional matches. Search cursors order results by relevance, creation time, and ID. They are valid for that query. If photos are retagged between requests, their ranking can change. An optional `warning` reports when only tag matches could be returned because visual inference was unavailable.
 
 ## Image search indexing
 
