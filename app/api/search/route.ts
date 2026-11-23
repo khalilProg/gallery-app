@@ -2,7 +2,8 @@ import type { GalleryPage } from "@/lib/image-response";
 import { IMAGE_PROJECTION, imageResponse, type ImageRecord } from "@/lib/image-record";
 import { GET as galleryPage } from "../images/route";
 import { ObjectId } from "mongodb";
-import { planSearch, searchTagEvidence } from "@/lib/search-categories";
+import { descriptionMatches, planSearch, searchTagEvidence } from "@/lib/search-categories";
+import { visibleAiTags } from "@/lib/photo-metadata";
 import { getDb } from "@/lib/mongodb";
 import { generateTextEmbedding, dotProduct } from "@/lib/embeddings";
 
@@ -65,18 +66,30 @@ export async function GET(req: Request) {
     const images = await db.collection<ImageRecord>("images").find({}, { projection: { ...IMAGE_PROJECTION, embedding: 1 }, sort: { createdAt: -1, _id: -1 } }).toArray();
 
     const plan = planSearch(query);
+    const manualPlan = { ...plan, rivals: new Set<string>() };
     const results: Array<{ image: ImageRecord; rank: number }> = [];
     const visualCandidates: Array<{ image: ImageRecord; contextualMatch: boolean }> = [];
 
     for (const image of images) {
-      const evidence = searchTagEvidence(plan, image.tags);
+      const manual = searchTagEvidence(manualPlan, image.manualTags);
+      if (manual === "direct" || descriptionMatches(plan, image.description)) {
+        results.push({ image, rank: 4 });
+        continue;
+      }
+      if (manual === "related" && !plan.contextual) {
+        results.push({ image, rank: 3 });
+        continue;
+      }
+      if (image.removedAiTags?.some((tag) => searchTagEvidence(plan, [tag]) === "direct")) continue;
+
+      const evidence = searchTagEvidence(plan, visibleAiTags(image.tags, image.removedAiTags));
       if (evidence === "rival") continue;
       if (evidence === "direct") {
         results.push({ image, rank: 3 });
       } else if (evidence === "related" && !plan.contextual) {
         results.push({ image, rank: 2 });
       } else if (Array.isArray(image.embedding) && image.embedding.length > 0) {
-        visualCandidates.push({ image, contextualMatch: evidence === "related" });
+        visualCandidates.push({ image, contextualMatch: evidence === "related" || manual === "related" });
       }
     }
 
@@ -98,7 +111,7 @@ export async function GET(req: Request) {
       } catch (error) {
         console.error("Visual search unavailable", error);
         req.signal.throwIfAborted();
-        warning = "Visual search is unavailable. Showing tag matches.";
+        warning = "Visual search is unavailable. Showing tag and description matches.";
         if (!results.length) {
           return Response.json({ error: "Visual search is temporarily unavailable." }, { status: 503 });
         }

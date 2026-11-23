@@ -107,6 +107,7 @@ export function planSearch(query: string) {
     const group = aliases.get(exact);
     const domain = group ?? closestFamily(exact);
     return {
+      phrase,
       direct: labelSet([exact]),
       related: group?.labels ?? labelSet([]),
       rivals: domain?.rivalLabels ?? labelSet([]),
@@ -128,6 +129,7 @@ export function planSearch(query: string) {
   const group = context ? aliases.get(context) : undefined;
   const domain = group ?? (context ? closestFamily(context) : undefined);
   return {
+    phrase,
     direct: labelSet([phrase]),
     related: group?.labels ?? labelSet(context ? [context] : []),
     rivals: domain?.rivalLabels ?? labelSet([]),
@@ -140,6 +142,11 @@ export function planSearch(query: string) {
 }
 
 export type SearchPlan = ReturnType<typeof planSearch>;
+
+export function descriptionMatches(plan: SearchPlan, description = "") {
+  const text = ` ${normalize(description)} `;
+  return [plan.phrase, ...plan.direct].some((term) => term && text.includes(` ${term} `));
+}
 
 export function searchTagEvidence(plan: SearchPlan, tags: unknown) {
   const ordered = Array.isArray(tags) ? tags.filter((tag): tag is string => typeof tag === "string") : [];

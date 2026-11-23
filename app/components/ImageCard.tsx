@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { GalleryImage } from "@/lib/image-response";
+import PhotoDetailsEditor from "./PhotoDetailsEditor";
 import PhotoViewer from "./PhotoViewer";
 
 const actionClass = "grid size-8 place-items-center rounded-lg bg-black/65 text-white transition-colors";
@@ -10,13 +11,16 @@ const actionClass = "grid size-8 place-items-center rounded-lg bg-black/65 text-
 export default function ImageCard({
   image,
   onDeleted,
+  onSaved,
 }: {
   image: GalleryImage;
   onDeleted: (id: string) => void;
+  onSaved: (image: GalleryImage) => void;
 }) {
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const thumbnailUrl = thumbnailFailed ? undefined : image.thumbnailUrl;
   const [viewing, setViewing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -45,7 +49,7 @@ export default function ImageCard({
           loading="lazy"
           decoding="async"
           onError={thumbnailUrl ? () => setThumbnailFailed(true) : undefined}
-          alt={image.filename ?? "Gallery image"}
+          alt={image.description || image.filename || "Gallery image"}
           className="h-full w-full object-cover"
         />
 
@@ -85,6 +89,9 @@ export default function ImageCard({
         <p className="truncate text-sm font-medium text-zinc-100" title={image.filename}>
           {image.filename ?? "Untitled photo"}
         </p>
+        {image.description && (
+          <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm text-zinc-300">{image.description}</p>
+        )}
 
         {image.indexingState === "failed" && (
           <p className="text-xs text-amber-300">Search couldn’t be prepared for this photo.</p>
@@ -101,7 +108,17 @@ export default function ImageCard({
             </ul>
           </details>
         )}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          disabled={deleting}
+          aria-label={`Edit details for ${image.filename ?? "untitled photo"}`}
+          className="block rounded py-1 text-xs font-medium text-indigo-300 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-indigo-400"
+        >
+          Edit details
+        </button>
       </div>
+      {editing && <PhotoDetailsEditor image={image} onSaved={onSaved} onClose={() => setEditing(false)} />}
       {viewing && (
         <PhotoViewer
           url={image.url}

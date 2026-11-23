@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { GalleryImage, GalleryIndexingUpdate, GalleryPage } from "@/lib/image-response";
+import { uniqueTags, visibleAiTags } from "@/lib/photo-metadata";
 import ImageCard from "./ImageCard";
 
 export default function ImageGrid({ searchQuery = "" }: { searchQuery?: string }) {
@@ -70,7 +71,9 @@ function GalleryResults({ query }: { query: string }) {
         const byId = new Map(updates.map((update) => [update._id, update]));
         setImages((previous) => previous.map((image) => {
           const update = byId.get(image._id);
-          return update ? { ...image, ...update } : image;
+          if (!update) return image;
+          const aiTags = visibleAiTags(update.aiTags, image.removedAiTags);
+          return { ...image, indexingState: update.indexingState, aiTags, tags: uniqueTags([...(image.manualTags ?? []), ...aiTags]) };
         }));
       } catch {
         // A transient status error is retried by the next poll.
@@ -88,6 +91,30 @@ function GalleryResults({ query }: { query: string }) {
 
   function handleDeleted(id: string) {
     setImages((previous) => previous.filter((image) => image._id !== id));
+  }
+
+  function handleSaved(saved: GalleryImage) {
+    const { description, manualTags, removedAiTags } = saved;
+    setImages((previous) => previous.map((image) => {
+      if (image._id !== saved._id) return image;
+      // Keep a completed poll if the edit response was captured while indexing was pending.
+      const indexed = saved.indexingState === "pending" ? image : saved;
+      const aiTags = visibleAiTags(indexed.aiTags, removedAiTags);
+      return {
+        ...image,
+        description,
+        manualTags,
+        removedAiTags,
+        indexingState: indexed.indexingState,
+        aiTags,
+        tags: uniqueTags([...(manualTags ?? []), ...aiTags]),
+      };
+    }));
+    if (query) {
+      setError(null);
+      setLoading(true);
+      setRequest({ cursor: null });
+    }
   }
 
   function loadMore() {
@@ -119,7 +146,7 @@ function GalleryResults({ query }: { query: string }) {
       {images.length > 0 && (
         <div className="grid grid-cols-2 items-start gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
           {images.map((image) => (
-            <ImageCard key={image._id} image={image} onDeleted={handleDeleted} />
+            <ImageCard key={image._id} image={image} onDeleted={handleDeleted} onSaved={handleSaved} />
           ))}
         </div>
       )}
