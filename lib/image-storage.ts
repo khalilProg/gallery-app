@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { ObjectId } from "mongodb";
 import { getDb } from "./mongodb";
+import { pendingIndexing } from "./indexing";
 import { getS3 } from "./garage";
 import { incrementDeletions, incrementUploads } from "./metrics";
 
@@ -61,6 +62,7 @@ export async function saveImage(file: File, buffer: Buffer, contentType: string,
       size: file.size,
       contentType,
       createdAt: new Date(),
+      indexing: pendingIndexing(),
     });
   } catch (error) {
     // A lost MongoDB acknowledgement can hide a successful insert.

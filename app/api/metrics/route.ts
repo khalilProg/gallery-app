@@ -3,13 +3,11 @@ import { getRegistry, setImagesStored } from '@/lib/metrics';
 import { getDb } from '@/lib/mongodb';
 
 export async function GET() {
-  // Refresh the images_stored gauge on every scrape
   try {
     const db = await getDb();
     const count = await db.collection('images').countDocuments();
     setImagesStored(count);
   } catch {
-    // Non-fatal: metrics still served without the gauge update
   }
 
   const registry = getRegistry();

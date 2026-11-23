@@ -1,17 +1,10 @@
 import { ObjectId } from "mongodb";
 import type { GalleryPage } from "@/lib/image-response";
+import { IMAGE_PROJECTION, imageResponse, type ImageRecord } from "@/lib/image-record";
 import { getDb } from "@/lib/mongodb";
 
 const PAGE_SIZE = 12;
 let indexReady: Promise<string> | undefined;
-
-interface ImageRecord {
-  _id: ObjectId;
-  url: string;
-  thumbnailKey?: string;
-  filename?: string;
-  createdAt: Date;
-}
 
 function parseCursor(cursor: string) {
   const [timestamp, id, extra] = cursor.split(",");
@@ -45,7 +38,7 @@ export async function GET(req: Request) {
         { createdAt: cursor.createdAt, _id: { $lt: cursor._id } },
       ],
     } : {}, {
-      projection: { url: 1, thumbnailKey: 1, filename: 1, createdAt: 1 },
+      projection: IMAGE_PROJECTION,
       sort: { createdAt: -1, _id: -1 },
       limit: PAGE_SIZE + 1,
     }).toArray();
@@ -53,18 +46,12 @@ export async function GET(req: Request) {
     const page = records.slice(0, PAGE_SIZE);
     const last = page.at(-1);
     const response: GalleryPage = {
-      images: page.map((image) => ({
-        _id: image._id.toHexString(),
-        url: image.url,
-        thumbnailUrl: image.thumbnailKey ? `/api/proxy/${image.thumbnailKey}` : undefined,
-        filename: image.filename,
-        createdAt: image.createdAt.toISOString(),
-      })),
+      images: page.map(imageResponse),
       nextCursor: last && records.length > PAGE_SIZE
         ? `${last.createdAt.toISOString()},${last._id.toHexString()}`
         : null,
     };
-    return Response.json(response);
+    return Response.json(response, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Could not load gallery page", error);
     return Response.json({ error: "Could not load images. Try again." }, { status: 503 });

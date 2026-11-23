@@ -1,13 +1,12 @@
 services:
   mongo:
     image: mongo:8
-    container_name: mongo-db
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27018:27017"
     volumes:
       - mongo_data:/data/db
     networks:
@@ -15,7 +14,6 @@ services:
 
   garage:
     image: dxflrs/garage:v2.3.0
-    container_name: garage
     restart: unless-stopped
     ports:
       - "3900:3900"
@@ -32,7 +30,6 @@ services:
 
   mongodb-exporter:
     image: bitnami/mongodb-exporter:latest
-    container_name: mongodb-exporter
     restart: unless-stopped
     command:
       - --collect-all
@@ -47,14 +44,14 @@ services:
       - gallery-network
 
   gallery:
-    container_name: gallery-app
+    image: gallery-app:local
     restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
-    environment:
+      - "127.0.0.1:3001:3000"
+    environment: &gallery-environment
       - MONGO_URI=${MONGO_URI}
       - GARAGE_ENDPOINT=${GARAGE_ENDPOINT}
       - GARAGE_ACCESS_KEY=${GARAGE_ACCESS_KEY}
@@ -66,9 +63,19 @@ services:
     networks:
       - gallery-network
 
+  indexer:
+    image: gallery-app:local
+    pull_policy: never
+    restart: unless-stopped
+    command: ["node", "scripts/index-images.ts"]
+    environment: *gallery-environment
+    depends_on:
+      - gallery
+    networks:
+      - gallery-network
+
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -84,7 +91,6 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -97,7 +103,7 @@ services:
       - ./monitoring/grafana/grafana.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3002:3000"
     networks:
       - gallery-network
 
