@@ -7,6 +7,10 @@ export interface GalleryImage {
   filename?: string;
   createdAt: string;
   tags?: string[];
+  description?: string;
+  manualTags?: string[];
+  aiTags?: string[];
+  removedAiTags?: string[];
   indexingState?: IndexingState;
 }
 
@@ -19,5 +23,6 @@ export interface GalleryPage {
 export interface GalleryIndexingUpdate {
   _id: string;
   indexingState: IndexingState;
+  aiTags: string[];
   tags?: string[];
 }

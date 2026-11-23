@@ -100,7 +100,7 @@ docker compose exec indexer npm run indexing:backfill
 docker compose logs -f indexer
 ```
 
-Broad searches such as `food`, `clothes`, and `nature` include related tags and can also match visually similar photos. Existing tags work immediately. Photo cards have an expandable tag list with visual descriptions and broader related terms. Retagging reuses compatible CLIP embeddings. To refresh older photos, run `docker compose exec indexer npm run indexing:backfill -- --retag`.
+Broad searches such as `food`, `clothes`, and `nature` include related tags and can also match visually similar photos. Use **Edit details** on a photo card to add a searchable description, manage manual tags, or remove incorrect AI tags. Descriptions, manual tags, and AI tag removals survive retagging. Retagging reuses compatible CLIP embeddings. To refresh older photos, run `docker compose exec indexer npm run indexing:backfill -- --retag`.
 
 For host development, run `npm run indexing:worker` in a second terminal with the same `.env.local` as the app. Use `npm run indexing:backfill` to queue older photos. The first host run can download the CLIP model. The production image downloads the model during its build.
 
